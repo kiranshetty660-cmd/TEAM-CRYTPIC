@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tracerx-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./tracerx.db
+      - TODAY=2026-10-09
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - CHAIN_RPC_URL=${CHAIN_RPC_URL:-}
+      - CHAIN_PRIVATE_KEY=${CHAIN_PRIVATE_KEY:-}
+      - ANCHOR_CONTRACT_ADDRESS=${ANCHOR_CONTRACT_ADDRESS:-}
+    volumes:
+      - ./backend/data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: tracerx-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    restart: unless-stopped

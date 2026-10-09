@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+backend/venv/
+.pytest_cache/
+*.db
+*.sqlite3
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# Hardhat
+artifacts/
+cache/
+
+# Environment & IDE
+.env
+.env.local
+.vscode/
+.idea/
+*.log
