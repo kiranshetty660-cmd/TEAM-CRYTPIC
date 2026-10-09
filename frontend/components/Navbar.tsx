@@ -14,6 +14,8 @@ import {
   Activity,
   Menu,
   X,
+  Layers,
+  Cpu,
 } from "lucide-react";
 import { useUser } from "../lib/UserContext";
 
@@ -25,6 +27,8 @@ export function Navbar() {
 
   const navLinks = [
     { href: "/", label: "Compliance Board", icon: Activity },
+    { href: "/cases", label: "Closed-Loop Cases", icon: Layers },
+    { href: "/agents", label: "Agent Monitor", icon: Cpu },
     { href: "/trace", label: "Batch Trace", icon: Search },
     { href: "/approvals", label: "Approvals Queue", icon: CheckSquare },
     { href: "/inventory", label: "Batch Inventory", icon: Boxes },

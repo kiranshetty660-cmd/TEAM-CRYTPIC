@@ -15,6 +15,9 @@ from app.routers import (
     ledger,
     data,
     dev,
+    cases,
+    supply_chain,
+    agent_monitor,
 )
 
 # Ensure tables exist
@@ -44,6 +47,9 @@ app.include_router(recalls.router)
 app.include_router(ledger.router)
 app.include_router(data.router)
 app.include_router(dev.router)
+app.include_router(cases.router)
+app.include_router(supply_chain.router)
+app.include_router(agent_monitor.router)
 
 @app.get("/api/health")
 def health_check(db: Session = Depends(get_db)):
@@ -54,7 +60,9 @@ def health_check(db: Session = Depends(get_db)):
         "today_configured": settings.TODAY_STR,
         "database": "connected",
         "ledger_entries": ledger_count,
-        "llm_configured": bool(settings.ANTHROPIC_API_KEY),
+        "llm_configured": bool(settings.NVIDIA_API_KEY or settings.ANTHROPIC_API_KEY),
+        "llm_provider": "nvidia_nim" if settings.NVIDIA_API_KEY else ("anthropic" if settings.ANTHROPIC_API_KEY else "deterministic_fallback"),
+        "llm_model": settings.NVIDIA_MODEL if settings.NVIDIA_API_KEY else ("claude-3-5-sonnet-20241022" if settings.ANTHROPIC_API_KEY else None),
         "chain_configured": bool(settings.CHAIN_RPC_URL and settings.CHAIN_PRIVATE_KEY),
         "version": "1.0.0",
     }

@@ -203,6 +203,35 @@ def tool_compare_options(finding_type: str, params: Dict[str, Any]) -> List[Dict
         )
     return []
 
+def tool_investigate_root_cause(db: Session, finding_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Deterministic root-cause investigation across inventory, dispatch, supplier, and telemetry records.
+    """
+    from app.schemas import Finding
+    from app.engine.root_cause import investigate_root_cause
+    try:
+        f = Finding.model_validate(finding_dict)
+    except Exception:
+        f = Finding(
+            id=finding_dict.get("id", "FIND-UNKNOWN"),
+            type=finding_dict.get("type", "recall"),
+            severity=float(finding_dict.get("severity", 50.0)),
+            title=finding_dict.get("title", "Finding"),
+            description=finding_dict.get("description", ""),
+            entities=finding_dict.get("entities", {}),
+            metrics=finding_dict.get("metrics", {}),
+        )
+    return investigate_root_cause(f, db)
+
+def tool_forecast_demand(db: Session, sku: str, horizon_days: int = 60) -> Dict[str, Any]:
+    """
+    Statistical demand forecasting and suggested replenishment calculation.
+    """
+    from app.engine.forecasting import calculate_demand_forecast
+    if not sku or not isinstance(sku, str):
+        raise ValueError("SKU must be a non-empty string.")
+    return calculate_demand_forecast(sku=sku.strip().upper(), db=db, horizon_days=horizon_days)
+
 # ---------------------------------------------------------------------------
 # Official Anthropic Tool Calling Definitions (Read-Only Registered Tools)
 # ---------------------------------------------------------------------------
@@ -299,7 +328,54 @@ ANTHROPIC_TOOLS = [
             },
             "required": ["clean_qty", "customers"]
         }
+    },
+    {
+        "name": "investigate_root_cause",
+        "description": "Inspects cross-table records (inventory, dispatches, telemetry, suppliers, purchase orders) to isolate confirmed facts from ranked hypotheses.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "finding": {
+                    "type": "object",
+                    "description": "The finding object or finding dictionary containing type, entities, and metrics."
+                }
+            },
+            "required": ["finding"]
+        }
+    },
+    {
+        "name": "forecast_demand",
+        "description": "Calculates statistical demand forecast, data sufficiency check, safety stock, net inventory position, and suggested replenishment calculation.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "sku": {
+                    "type": "string",
+                    "description": "Product SKU code."
+                },
+                "horizon_days": {
+                    "type": "integer",
+                    "description": "Demand forecast horizon in days (default 60)."
+                }
+            },
+            "required": ["sku"]
+        }
     }
+]
+
+# ---------------------------------------------------------------------------
+# NVIDIA NIM / OpenAI Compatible Tool Calling Definitions
+# ---------------------------------------------------------------------------
+NVIDIA_NIM_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": t["name"],
+            "description": t["description"],
+            "parameters": t.get("input_schema", {}),
+        },
+    }
+    for t in ANTHROPIC_TOOLS
 ]
 
 def execute_registered_tool(tool_name: str, tool_input: Dict[str, Any], db: Session) -> Dict[str, Any]:
@@ -327,5 +403,12 @@ def execute_registered_tool(tool_name: str, tool_input: Dict[str, Any], db: Sess
         customers = tool_input.get("customers", [])
         is_crit = tool_input.get("is_critical_drug", False)
         return tool_allocate(clean_qty, customers, is_crit)
+    elif tool_name == "investigate_root_cause":
+        finding_dict = tool_input.get("finding", {})
+        return tool_investigate_root_cause(db, finding_dict)
+    elif tool_name == "forecast_demand":
+        sku = tool_input.get("sku")
+        horizon_days = tool_input.get("horizon_days", 60)
+        return tool_forecast_demand(db, sku, horizon_days)
     else:
         raise ValueError(f"Unauthorized or unregistered tool: '{tool_name}'. Execution prohibited.")

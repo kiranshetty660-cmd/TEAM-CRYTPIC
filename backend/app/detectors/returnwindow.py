@@ -100,7 +100,36 @@ def detect_return_window_closing(db: Session) -> List[Finding]:
                     source_rows=[
                         {"type": "supplier_contract", "manufacturer": supp.manufacturer, "return_window_days": return_window_days, "credit_pct": credit_pct},
                         {"type": "inventory_batch", "batch": b.batch, "qty": b.qty, "expiry": b.expiry_date.isoformat()}
-                    ]
+                    ],
+                    evidence_sources=[
+                        {
+                            "source_table": "suppliers",
+                            "record_id": f"SUPPLIER:{supp.manufacturer}:{b.sku}",
+                            "timestamp": today.isoformat(),
+                            "evidence_type": "CONTRACT_RETURN_POLICY",
+                            "details": {"manufacturer": supp.manufacturer, "return_window_days": return_window_days, "credit_pct": credit_pct, "unit_cost": supp.unit_cost}
+                        },
+                        {
+                            "source_table": "batch_inventory",
+                            "record_id": f"LOT:{b.batch}",
+                            "timestamp": today.isoformat(),
+                            "evidence_type": "UNSOLD_STOCK_AT_RISK",
+                            "details": {"batch": b.batch, "qty": b.qty, "expiry_date": b.expiry_date.isoformat(), "warehouse": b.warehouse}
+                        }
+                    ],
+                    rule_metadata={
+                        "rule_id": "RULE-RET-004",
+                        "rule_name": "Supplier Debit Note & RMA Window Expiry Protection",
+                        "regulatory_reference": "Pharma Commercial Distribution RMA Protocol",
+                        "threshold_days_to_window_close": 30,
+                    },
+                    calculation_steps=[
+                        {"step": 1, "description": "Calculate return window closing cutoff", "formula": "expiry_date - return_window_days", "value": window_close_date.isoformat()},
+                        {"step": 2, "description": "Compute remaining claim window", "formula": "(window_close_date - today).days", "value": days_to_window_close},
+                        {"step": 3, "description": "Calculate recoverable manufacturer credit", "formula": "at_risk * unit_cost * credit_pct", "value": recovery_inr},
+                        {"step": 4, "description": "Calculate unmitigated write-off risk", "formula": "at_risk * unit_cost", "value": value_at_risk},
+                    ],
+                    data_quality_warnings=["Supplier agreement lacks explicit return window; 60-day default applied."] if (return_window_days == 60 and not supp.return_window_days) else [],
                 ))
 
     return findings

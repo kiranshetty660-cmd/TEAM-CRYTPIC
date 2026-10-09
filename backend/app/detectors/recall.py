@@ -135,6 +135,13 @@ def detect_recalls(db: Session) -> List[Finding]:
             ),
         ]
 
+        # Data quality checks
+        data_quality_warnings = []
+        if any(c["location"] == "Unknown" for c in customer_list):
+            data_quality_warnings.append("Some customer accounts lack geo-location data.")
+        if any(w["warehouse"] == "UNASSIGNED" for w in wh_locations):
+            data_quality_warnings.append("Inventory exists in an UNASSIGNED warehouse location.")
+
         findings.append(Finding(
             id=f"FIND-REC-{rec.id}",
             type="recall",
@@ -169,7 +176,44 @@ def detect_recalls(db: Session) -> List[Finding]:
                 {"type": "recall_record", "id": rec.id, "class": rec.recall_class, "reason": rec.reason},
                 {"type": "wh_inventory", "locations": wh_locations},
                 {"type": "clean_inventory", "clean_batches": [b.batch for b in clean_inventory], "clean_qty": clean_qty},
-            ]
+            ],
+            evidence_sources=[
+                {
+                    "source_table": "recalls",
+                    "record_id": rec.id,
+                    "timestamp": rec.date.isoformat(),
+                    "evidence_type": "REGULATORY_NOTICE",
+                    "details": {"sku": rec.sku, "batches": batch_list, "recall_class": rec.recall_class, "reason": rec.reason}
+                },
+                {
+                    "source_table": "batch_inventory",
+                    "record_id": f"SKU:{rec.sku}",
+                    "timestamp": today.isoformat(),
+                    "evidence_type": "WAREHOUSE_ON_HAND",
+                    "details": {"quarantinable_stock": stock_in_wh, "locations": wh_locations}
+                },
+                {
+                    "source_table": "dispatches",
+                    "record_id": f"30D_HISTORY:{rec.sku}",
+                    "timestamp": f"{thirty_days_ago.isoformat()} - {today.isoformat()}",
+                    "evidence_type": "DISPATCH_EXPOSURE",
+                    "details": {"dispatched_units": dispatched_total, "accounts_count": len(customer_list), "hospitals": hospitals_count}
+                }
+            ],
+            rule_metadata={
+                "rule_id": "RULE-REC-001",
+                "rule_name": "CDSCO Regulatory Batch Quarantine & Trace",
+                "regulatory_reference": "CDSCO Drugs & Cosmetics Rules Section 28B / FDA Class Recall Protocol",
+                "statutory_response_limit_hours": 24,
+                "threshold_applied": "Active stock > 0 OR Dispatched units in 30d > 0",
+            },
+            calculation_steps=[
+                {"step": 1, "description": "Sum warehouse inventory for recalled batches", "formula": "sum(b.qty for b in wh_inventory)", "value": stock_in_wh},
+                {"step": 2, "description": "Compute 30-day outbound exposure across accounts", "formula": "sum(d.qty for d in dispatches_30d)", "value": dispatched_total},
+                {"step": 3, "description": "Determine clean replacement stock", "formula": "sum(clean_inventory.qty)", "value": clean_qty},
+                {"step": 4, "description": "Calculate stock shortfall", "formula": "max(0, replacement_need - clean_qty)", "value": shortfall},
+            ],
+            data_quality_warnings=data_quality_warnings,
         ))
 
     return findings

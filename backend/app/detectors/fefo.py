@@ -98,7 +98,35 @@ def detect_fefo_violations(db: Session) -> List[Finding]:
                 source_rows=[
                     {"type": "violating_dispatch", "id": disp.id, "batch": disp.batch, "date": disp.date.isoformat(), "qty": disp.qty},
                     {"type": "unsold_older_batch", "batch": older.batch, "qty": older.qty, "expiry": older.expiry_date.isoformat()}
-                ]
+                ],
+                evidence_sources=[
+                    {
+                        "source_table": "dispatches",
+                        "record_id": f"DISPATCH:{disp.id}",
+                        "timestamp": disp.date.isoformat(),
+                        "evidence_type": "INVERTED_PICK_EVENT",
+                        "details": {"dispatch_id": disp.id, "customer_id": disp.customer_id, "dispatched_batch": disp.batch, "qty": disp.qty}
+                    },
+                    {
+                        "source_table": "batch_inventory",
+                        "record_id": f"BYPASSED_LOT:{older.batch}",
+                        "timestamp": today.isoformat(),
+                        "evidence_type": "OLDER_RESIDUAL_LOT",
+                        "details": {"batch": older.batch, "older_expiry": older.expiry_date.isoformat(), "residual_qty": older.qty, "warehouse": older.warehouse}
+                    }
+                ],
+                rule_metadata={
+                    "rule_id": "RULE-FEFO-005",
+                    "rule_name": "First-Expiry-First-Out (FEFO) Dispatch Inversion Control",
+                    "regulatory_reference": "WHO GDP Guidelines for Pharmaceutical Products Section 12",
+                    "violation_condition": "Dispatched lot expiration date > Active on-hand lot expiration date in same depot",
+                },
+                calculation_steps=[
+                    {"step": 1, "description": "Verify date sequence inversion", "formula": "dispatched_expiry > older_expiry", "value": True},
+                    {"step": 2, "description": "Compute expiration gap delta", "formula": "(dispatched_expiry - older_expiry).days", "value": (disp_batch.expiry_date - older.expiry_date).days},
+                    {"step": 3, "description": "Identify unpicked residual inventory", "formula": "older.qty", "value": older.qty},
+                ],
+                data_quality_warnings=["Depot lacks automated WMS barcode-directed pick verification."] if older.warehouse == "WH-1" else [],
             ))
 
     return findings

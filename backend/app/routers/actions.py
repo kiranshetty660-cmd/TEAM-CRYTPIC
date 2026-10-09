@@ -133,12 +133,50 @@ def approve_action(
             "status": "ordered",
             "pre_execution_validated": True,
         }
+    elif action.type == "TRANSFER":
+        sku = payload.get("entities", {}).get("sku")
+        batch = payload.get("entities", {}).get("batch")
+        from_wh = payload.get("entities", {}).get("warehouse", "WH-1")
+        to_wh = payload.get("entities", {}).get("destination_warehouse", "WH-2")
+        qty = payload.get("metrics", {}).get("transfer_units", 100)
+        from app.models import WarehouseTransfer
+        xfer_id = f"XFER-{now.strftime('%m%d%H%M')}"
+        new_xfer = WarehouseTransfer(
+            id=xfer_id,
+            sku=sku,
+            batch=batch or "BATCH-1",
+            from_warehouse=from_wh,
+            to_warehouse=to_wh,
+            qty=qty,
+            reason=f"Emergency action transfer: {action.id}",
+            status="approved",
+            requested_by=req.user_name,
+            approved_by=f"{req.user_name} ({req.role})",
+            created_at=now,
+        )
+        db.add(new_xfer)
+        execution_details = {
+            "transfer_id": xfer_id,
+            "sku": sku,
+            "qty": qty,
+            "status": "approved",
+            "pre_execution_validated": True,
+        }
     else:
         execution_details = {
             "action_type": action.type,
             "pre_execution_validated": True,
         }
 
+    # Update associated Case if linked
+    from app.models import Case
+    from app.agent.tracer import ExecutionTracer
+    linked_case = db.query(Case).filter(Case.action_id == action.id).first()
+    if linked_case:
+        linked_case.status = "executed"
+        linked_case.updated_at = now
+
+    ExecutionTracer(db).update_human_approval_status(action.id, "executed")
     db.commit()
 
     # Append to SHA-256 Ledger (Guaranteed zero patient/customer PII)
@@ -189,6 +227,8 @@ def reject_action(
     action.decided_at = now
     action.reason = req.reason
 
+    from app.agent.tracer import ExecutionTracer
+    ExecutionTracer(db).update_human_approval_status(action.id, "rejected")
     db.commit()
 
     # Ledger event

@@ -9,7 +9,10 @@ class Settings(BaseSettings):
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./tracerx.db")
     TODAY_STR: str = os.getenv("TODAY", "2026-10-09")
     
-    # LLM Settings
+    # LLM Settings (NVIDIA NIM primary, Anthropic fallback)
+    NVIDIA_API_KEY: Optional[str] = os.getenv("NVIDIA_API_KEY", None)
+    NVIDIA_BASE_URL: str = os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
+    NVIDIA_MODEL: str = os.getenv("NVIDIA_MODEL", "z-ai/glm-5.3")
     ANTHROPIC_API_KEY: Optional[str] = os.getenv("ANTHROPIC_API_KEY", None)
     
     # Blockchain Settings

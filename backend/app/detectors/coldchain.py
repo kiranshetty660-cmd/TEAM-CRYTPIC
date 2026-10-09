@@ -150,7 +150,37 @@ def detect_coldchain_breaches(db: Session) -> List[Finding]:
                 source_rows=[
                     {"type": "breach_interval", "start": breach["start_ts"].isoformat(), "end": breach["end_ts"].isoformat(), "duration_mins": duration, "peak_temp": max(breach["temps"])},
                     {"type": "batches_present", "items": batch_details}
-                ]
+                ],
+                evidence_sources=[
+                    {
+                        "source_table": "temp_logs",
+                        "record_id": f"{wh}:{room}",
+                        "timestamp": f"{breach['start_ts'].isoformat()} - {breach['end_ts'].isoformat()}",
+                        "evidence_type": "IOT_TELEMETRY_SERIES",
+                        "details": {"readings_count": len(breach["temps"]), "peak_temp_c": max(breach["temps"]), "min_temp_c": min(breach["temps"])}
+                    },
+                    {
+                        "source_table": "batch_inventory",
+                        "record_id": f"{wh}:{room}:ACTIVE_BATCHES",
+                        "timestamp": breach["end_ts"].isoformat(),
+                        "evidence_type": "COLD_ROOM_INVENTORY",
+                        "details": {"batches_count": len(batch_details), "units_at_risk": total_qty_touched, "has_critical_drugs": has_critical}
+                    }
+                ],
+                rule_metadata={
+                    "rule_id": "RULE-COLD-002",
+                    "rule_name": "WHO Cold Chain Thermal Breach Monitoring",
+                    "regulatory_reference": "WHO TRS 961 Annex 9 / CDSCO Schedule M Temperature Storage Guidelines",
+                    "safe_temperature_range": "2.0°C to 8.0°C",
+                    "minimum_excursion_duration_minutes": 30,
+                },
+                calculation_steps=[
+                    {"step": 1, "description": "Calculate excursion window duration", "formula": "(end_ts - start_ts).total_seconds() / 60", "value": duration},
+                    {"step": 2, "description": "Compute mean excursion reading", "formula": "sum(temps) / len(temps)", "value": avg_temp},
+                    {"step": 3, "description": "Isolate maximum departure from safe band", "formula": "abs(temp - limit)", "value": delta},
+                    {"step": 4, "description": "Apply critical drug multiplier and duration scaling", "formula": "min(98.0, max(65.0, (duration / 10.0) * delta * crit_mult))", "value": computed_sev},
+                ],
+                data_quality_warnings=["Telemetry stream exhibits sporadic sensor intervals (>10 min)." if duration > len(breach["temps"]) * 10 else ""] if duration > len(breach["temps"]) * 10 else [],
             ))
 
     return findings

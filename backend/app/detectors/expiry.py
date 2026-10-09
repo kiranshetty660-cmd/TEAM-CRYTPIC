@@ -152,7 +152,45 @@ def detect_near_expiry(db: Session) -> List[Finding]:
                     {"type": "inventory", "batch": b.batch, "qty": b.qty, "expiry": b.expiry_date.isoformat()},
                     {"type": "velocity_metric", "last_60d_dispatches": disp_qty_60d, "daily_velocity": velocity},
                     {"type": "commercial", "unit_cost": unit_cost, "credit_pct": credit_pct, "return_window_days": return_window_days}
-                ]
+                ],
+                evidence_sources=[
+                    {
+                        "source_table": "batch_inventory",
+                        "record_id": f"{b.sku}:{b.batch}",
+                        "timestamp": today.isoformat(),
+                        "evidence_type": "EXPIRING_LOT_INSPECTION",
+                        "details": {"batch": b.batch, "qty": b.qty, "expiry_date": b.expiry_date.isoformat(), "warehouse": b.warehouse}
+                    },
+                    {
+                        "source_table": "dispatches",
+                        "record_id": f"60D_DISPATCHES:{b.batch}",
+                        "timestamp": f"{sixty_days_ago.isoformat()} - {today.isoformat()}",
+                        "evidence_type": "CONSUMPTION_VELOCITY",
+                        "details": {"units_shipped_60d": disp_qty_60d, "daily_rate": velocity}
+                    },
+                    {
+                        "source_table": "suppliers",
+                        "record_id": f"SUPPLIER:{b.sku}",
+                        "timestamp": today.isoformat(),
+                        "evidence_type": "VENDOR_CREDIT_POLICY",
+                        "details": {"unit_cost": unit_cost, "return_window_days": return_window_days, "credit_pct": credit_pct}
+                    }
+                ],
+                rule_metadata={
+                    "rule_id": "RULE-EXP-003",
+                    "rule_name": "Proactive Expiry & Unsold Inventory Mitigation",
+                    "regulatory_reference": "Good Distribution Practice (GDP) Shelf-Life Liquidation Guidelines",
+                    "threshold_days_to_expiry": 120,
+                    "at_risk_ratio_threshold": 0.20,
+                },
+                calculation_steps=[
+                    {"step": 1, "description": "Calculate remaining shelf life", "formula": "(expiry_date - today).days", "value": days_to_expiry},
+                    {"step": 2, "description": "Compute 60-day historical consumption velocity", "formula": "sum(dispatches_60d) / 60.0", "value": velocity},
+                    {"step": 3, "description": "Project sellable volume before expiration", "formula": "round(velocity * days_to_expiry, 1)", "value": projected_sellable},
+                    {"step": 4, "description": "Isolate quantity at risk of expiry write-off", "formula": "max(0, qty - projected_sellable)", "value": at_risk},
+                    {"step": 5, "description": "Calculate commercial value at risk", "formula": "at_risk * unit_cost", "value": value_at_risk},
+                ],
+                data_quality_warnings=["Zero historical dispatches for this batch; velocity assumed zero, maximizing risk projection." if disp_qty_60d == 0 else ""] if disp_qty_60d == 0 else [],
             ))
 
     return findings

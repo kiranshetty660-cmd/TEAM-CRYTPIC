@@ -100,6 +100,164 @@ export interface Finding {
   source_rows?: any[];
   ai_mode?: "LIVE_LLM" | "DETERMINISTIC_FALLBACK";
   multi_agent_summary?: MultiAgentSummary;
+  evidence_sources?: Array<Record<string, any>>;
+  rule_metadata?: Record<string, any>;
+  calculation_steps?: Array<Record<string, any>>;
+  data_quality_warnings?: string[];
+  root_cause_analysis?: RootCauseAnalysis;
+  case_id?: string;
+  case_status?: string;
+}
+
+export interface RootCauseAnalysis {
+  finding_type: string;
+  batch?: string;
+  sku?: string;
+  investigated_at: string;
+  confirmed_facts: Array<{
+    category: string;
+    fact: string;
+    evidence_source: string;
+    timestamp?: string;
+  }>;
+  ranked_hypotheses: Array<{
+    rank: number;
+    hypothesis: string;
+    likelihood: string;
+    supporting_evidence: string[];
+    contradicting_evidence: string[];
+    recommended_verification: string;
+  }>;
+  evidence_completeness: {
+    score: number;
+    missing_data: string[];
+    is_sufficient: boolean;
+  };
+  investigation_summary: string;
+}
+
+export type CaseStatus =
+  | "detected"
+  | "verified"
+  | "investigating"
+  | "recommended"
+  | "pending_approval"
+  | "executed"
+  | "outcome_checking"
+  | "closed"
+  | "reopened";
+
+export type VerificationStatus =
+  | "verified"
+  | "unverified"
+  | "disputed"
+  | "false_positive"
+  | "duplicate";
+
+export interface Case {
+  id: string;
+  finding_id: string;
+  title: string;
+  status: CaseStatus | string;
+  verification_status?: VerificationStatus | string;
+  verification_state?: string;
+  verification_reason?: string;
+  verified_by?: string;
+  verified_at?: string;
+  assigned_role?: string;
+  assigned_user?: string;
+  priority?: string;
+  severity?: number;
+  type?: string;
+  batch_id?: string;
+  sku?: string;
+  finding_type?: string;
+  evidence_references?: Array<Record<string, any>>;
+  root_cause?: RootCauseAnalysis;
+  root_cause_analysis?: any;
+  action_id?: string;
+  recommended_action_id?: string;
+  outcome_metrics?: Record<string, any>;
+  outcome_notes?: string;
+  closure_reason?: string;
+  closed_at?: string;
+  closed_by?: string;
+  reopened_reason?: string;
+  reopened_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DemandForecast {
+  sku: string;
+  product_name?: string;
+  molecule?: string;
+  data_sufficiency: {
+    total_dispatches: number;
+    date_range_days: number;
+    has_minimum_history: boolean;
+    is_sufficient: boolean;
+    warning?: string;
+  };
+  metrics: {
+    average_daily_demand: number;
+    standard_deviation: number;
+    coefficient_of_variation: number;
+    demand_volatility: string;
+    data_points_analyzed: number;
+  };
+  replenishment: {
+    forecast_horizon_days: number;
+    horizon_demand: number;
+    supplier_lead_time_days: number;
+    lead_time_demand: number;
+    safety_stock_units: number;
+    service_level_pct: number;
+    reorder_point: number;
+    current_warehouse_stock: number;
+    incoming_supply_units: number;
+    net_inventory_position: number;
+    moq: number;
+    suggested_reorder_qty: number;
+    calculation_formula: string;
+    replenishment_recommended: boolean;
+    rationale: string;
+  };
+  historical_monthly_trend: Array<{ month: string; units: number }>;
+}
+
+export interface Shipment {
+  id: string;
+  tracking_number: string;
+  carrier?: string;
+  status: string;
+  origin_type: string;
+  origin_id?: string;
+  destination_type: string;
+  destination_id?: string;
+  batch_id?: string;
+  sku?: string;
+  units: number;
+  estimated_delivery?: string;
+  actual_delivery?: string;
+  cold_chain_compliant: boolean;
+  temperature_breach_detected: boolean;
+  created_at: string;
+}
+
+export interface WarehouseTransfer {
+  id: string;
+  transfer_number: string;
+  from_warehouse: string;
+  to_warehouse: string;
+  batch_id: string;
+  sku: string;
+  units: number;
+  status: string;
+  reason: string;
+  authorized_by?: string;
+  initiated_at: string;
+  completed_at?: string;
 }
 
 export interface MultiAgentSummary {
@@ -291,3 +449,66 @@ export interface LedgerVerifyResult {
     actual_prev_hash?: string;
   };
 }
+
+export interface AgentTraceEvent {
+  id: number;
+  run_id: string;
+  event_seq: number;
+  event_type: "AGENT_STARTED" | "TOOL_REQUESTED" | "TOOL_COMPLETED" | "AGENT_COMPLETED" | "AGENT_FAILED" | "AGENT_SKIPPED" | "FALLBACK_USED" | "RUN_COMPLETED" | string;
+  agent_name: string;
+  invocation_reason?: string;
+  input_summary?: any;
+  referenced_evidence_ids?: string[];
+  tool_name?: string;
+  tool_arguments?: any;
+  tool_result?: any;
+  tool_error?: string;
+  output_summary?: any;
+  latency_ms?: number;
+  timestamp: string;
+}
+
+export interface AgentRunSummary {
+  run_id: string;
+  correlation_id: string;
+  finding_id: string;
+  case_id?: string;
+  batch?: string;
+  sku?: string;
+  provider: string;
+  model?: string;
+  ai_mode: string;
+  fallback_reason?: string;
+  status: "running" | "completed" | "failed" | "fallback" | string;
+  total_latency_ms: number;
+  total_tokens: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  chosen_option?: string;
+  recommended_action?: string;
+  required_role?: string;
+  uncertainty_score: number;
+  review_passed: boolean;
+  review_verdict?: string;
+  action_id?: string;
+  human_approval_status: "pending_approval" | "executed" | "rejected" | string;
+  created_at: string;
+  completed_at?: string;
+  events_count: number;
+}
+
+export interface AgentRunDetail extends AgentRunSummary {
+  events: AgentTraceEvent[];
+}
+
+export interface AgentMonitorStats {
+  total_runs: number;
+  live_llm_runs: number;
+  fallback_runs: number;
+  failed_runs: number;
+  avg_latency_ms: number;
+  review_pass_rate_pct: number;
+  pending_human_approvals: number;
+  tool_invocation_counts: Record<string, number>;
+}
+

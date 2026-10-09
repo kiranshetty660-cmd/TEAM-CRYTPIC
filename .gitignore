@@ -26,3 +26,4 @@ cache/
 .vscode/
 .idea/
 *.log
+.env.example

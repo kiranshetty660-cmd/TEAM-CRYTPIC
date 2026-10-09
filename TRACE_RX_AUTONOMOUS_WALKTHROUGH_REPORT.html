@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TraceRx — Autonomous Exploration, Testing & Learning Master Report</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --primary: #4f46e5;
+      --primary-light: #eef2ff;
+      --emerald: #059669;
+      --emerald-light: #ecfdf5;
+      --rose: #e11d48;
+      --rose-light: #fff1f2;
+      --amber: #d97706;
+      --amber-light: #fffbeb;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+    header {
+      background: white;
+      border-bottom: 1px solid var(--border);
+      padding: 32px 0;
+      margin-bottom: 40px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 9999px;
+      background: var(--primary-light);
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    h1 {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin: 12px 0 8px 0;
+    }
+    h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-top: 48px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      color: #1e293b;
+    }
+    h3 {
+      font-size: 17px;
+      font-weight: 600;
+      margin-top: 24px;
+      color: #334155;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin: 20px 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+    .img-container {
+      margin: 20px 0;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #f1f5f9;
+    }
+    img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .caption {
+      padding: 8px 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+      background: #f8fafc;
+      border-top: 1px solid var(--border);
+      font-family: monospace;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      text-align: left;
+    }
+    th {
+      background: #f8fafc;
+      font-weight: 600;
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #0f172a;
+    }
+    pre {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 13px;
+    }
+    .callout {
+      border-left: 4px solid var(--primary);
+      background: var(--primary-light);
+      padding: 16px 20px;
+      border-radius: 0 8px 8px 0;
+      margin: 20px 0;
+      font-size: 14px;
+    }
+    .callout-success {
+      border-left-color: var(--emerald);
+      background: var(--emerald-light);
+    }
+    .callout-warning {
+      border-left-color: var(--amber);
+      background: var(--amber-light);
+    }
+    .callout-danger {
+      border-left-color: var(--rose);
+      background: var(--rose-light);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin: 20px 0;
+    }
+    .kpi {
+      background: white;
+      border: 1px solid var(--border);
+      padding: 16px;
+      border-radius: 8px;
+    }
+    .kpi-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+    .kpi-value {
+      font-size: 26px;
+      font-weight: 800;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="container" style="padding-top:0; padding-bottom:0;">
+    <span class="badge">Master Project Walkthrough</span>
+    <h1>TraceRx: Autonomous Exploration & Learning Report</h1>
+    <p style="margin: 0; color: var(--text-muted); font-size: 15px;">
+      Enterprise Agentic Compliance Desk & Closed-Loop Supply Chain Intelligence for Indian Pharmaceutical Distribution
+    </p>
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="grid">
+    <div class="kpi">
+      <div class="kpi-title">Test Suite Status</div>
+      <div class="kpi-value" style="color: var(--emerald);">57 / 57 Passed</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-title">Specialist Agents</div>
+      <div class="kpi-value" style="color: var(--primary);">5 Deterministic</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-title">LLM Tool Calling</div>
+      <div class="kpi-value">NVIDIA NIM</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-title">Cryptographic Ledger</div>
+      <div class="kpi-value" style="color: var(--emerald);">100% Valid</div>
+    </div>
+  </div>
+
+  <h2>1. Executive Summary & Domain Mission</h2>
+  <p>
+    <strong>TraceRx</strong> was built for pharmaceutical distributors managing regional warehouses across India (modeled on Arogya Pharma Distributors, serving Bengaluru, Hubballi, and Mysuru across 400 retail pharmacies and 20 major tertiary care hospitals).
+  </p>
+  <div class="callout callout-success">
+    <strong>Architectural Law:</strong> Never allow an LLM to hallucinate ground facts or authorize actions. Use deterministic SQL queries for telemetry, multi-agent adversarial auditing for validation, deterministic fallback engines for resilience, and strict human authorization gates for real-world execution.
+  </div>
+
+  <h2>2. Live Browser Walkthrough & Visual Documentation</h2>
+
+  <h3>4.1 Compliance Intelligence Desk (<code>/</code>)</h3>
+  <div class="img-container">
+    <img src="report_assets/01_compliance_board.png" alt="Compliance Intelligence Desk">
+    <div class="caption">Figure 1: Executive Compliance Desk with categorical filters and live KPI strip.</div>
+  </div>
+
+  <h3>4.2 Closed-Loop Supply Chain Intelligence (<code>/cases</code>)</h3>
+  <div class="img-container">
+    <img src="report_assets/02_closed_loop_cases.png" alt="Closed-Loop Cases Desk">
+    <div class="caption">Figure 2: Persistent case lifecycle from detection through verification and root cause.</div>
+  </div>
+
+  <h3>4.3 Multi-Agent Execution Monitor (<code>/agents</code>)</h3>
+  <div class="img-container">
+    <img src="report_assets/03_agent_monitor.png" alt="Multi-Agent Execution Monitor">
+    <div class="caption">Figure 3: Multi-Agent Execution Monitor with separation of controls and 12-event lifecycle trace.</div>
+  </div>
+
+  <h3>4.4 End-to-End Batch Traceability (<code>/trace</code>)</h3>
+  <div class="img-container">
+    <img src="report_assets/04_batch_trace.png" alt="Batch Traceability">
+    <div class="caption">Figure 4: Bidirectional traceability with automated hospital prioritization over retail chemists.</div>
+  </div>
+
+  <h3>4.5 Human-in-the-Loop Approvals Queue (<code>/approvals</code>)</h3>
+  <div class="img-container">
+    <img src="report_assets/05_approvals_queue.png" alt="Approvals Queue">
+    <div class="caption">Figure 5: Gated human authorization queue with persona switcher and role-based permissions.</div>
+  </div>
+
+  <h3>4.6 Batch Inventory & Shelf-Life Radar (<code>/inventory</code>)</h3>
+  <div class="img-container">
+    <img src="report_assets/06_inventory_import.png" alt="Batch Inventory Radar">
+    <div class="caption">Figure 6: Color-coded shelf-life degradation radar and CSV/XLSX ingestion wizard.</div>
+  </div>
+
+  <h3>4.7 Tamper-Evident Audit Ledger & EVM Anchors (<code>/verify</code>)</h3>
+  <div class="img-container">
+    <img src="report_assets/07_ledger_verify.png" alt="Audit Ledger">
+    <div class="caption">Figure 7: Tamper-evident audit ledger with forward-linked SHA-256 hashes and EVM anchors.</div>
+  </div>
+
+  <h3>4.8 Cryptographic Tamper Detection in Action</h3>
+  <div class="img-container">
+    <img src="report_assets/09_tamper_detected.png" alt="Tamper Detected Banner">
+    <div class="caption">Figure 8: Real-time detection of database manipulation at Sequence #10.</div>
+  </div>
+
+  <h3>4.9 Statistical Demand Replenishment & Active Freight Logistics</h3>
+  <div class="grid">
+    <div class="img-container">
+      <img src="report_assets/10_cases_forecast_tab.png" alt="Demand Forecast">
+      <div class="caption">Figure 9: Statistical Reorder Point (ROP) & Safety Stock calculations.</div>
+    </div>
+    <div class="img-container">
+      <img src="report_assets/11_cases_logistics_tab.png" alt="Logistics Desk">
+      <div class="caption">Figure 10: Inbound and outbound cold-chain freight tracking.</div>
+    </div>
+  </div>
+
+  <h2>3. Complete Markdown Report Location</h2>
+  <p>
+    The complete 15-section exhaustive report with sequence diagrams, 10 judge Q&As, and beginner pitch scripts has been saved at:
+  </p>
+  <pre>D:\Team_Cryptic\TRACE_RX_AUTONOMOUS_WALKTHROUGH_REPORT.md</pre>
+
+</div>
+
+</body>
+</html>

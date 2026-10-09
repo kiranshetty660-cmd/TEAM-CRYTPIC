@@ -96,7 +96,46 @@ def detect_critical_shortages(db: Session) -> List[Finding]:
                         {"type": "critical_product", "sku": prod.sku, "brand": prod.brand},
                         {"type": "current_inventory", "total_stock": total_stock, "cover_days": cover_days},
                         {"type": "supply_chain", "lead_time_days": lead_time, "threshold_days": threshold_days}
-                    ]
+                    ],
+                    evidence_sources=[
+                        {
+                            "source_table": "products",
+                            "record_id": f"CATALOG:{prod.sku}",
+                            "timestamp": today.isoformat(),
+                            "evidence_type": "EMERGENCY_ICU_CLASSIFICATION",
+                            "details": {"sku": prod.sku, "brand": prod.brand, "critical_drug": True, "category": prod.category}
+                        },
+                        {
+                            "source_table": "batch_inventory",
+                            "record_id": f"ACTIVE_STOCK:{prod.sku}",
+                            "timestamp": today.isoformat(),
+                            "evidence_type": "AGGREGATE_CLEAN_STOCK",
+                            "details": {
+                                "on_hand_units": total_stock,
+                                "active_batches_count": db.query(BatchInventory).filter(BatchInventory.sku == prod.sku, BatchInventory.status == "active").count()
+                            }
+                        },
+                        {
+                            "source_table": "suppliers",
+                            "record_id": f"LEAD_TIME:{prod.sku}",
+                            "timestamp": today.isoformat(),
+                            "evidence_type": "REPLENISHMENT_LEAD_TIME",
+                            "details": {"lead_time_days": lead_time, "moq": supp.moq if supp else 200}
+                        }
+                    ],
+                    rule_metadata={
+                        "rule_id": "RULE-CRIT-006",
+                        "rule_name": "Critical Drug Stockout Buffer Warning",
+                        "regulatory_reference": "National List of Essential Medicines (NLEM) ICU Continuity Protocol",
+                        "threshold_definition": f"Days of cover < (Supplier Lead Time ({lead_time}d) + Safety Buffer (3d))",
+                    },
+                    calculation_steps=[
+                        {"step": 1, "description": "Calculate daily consumption rate over 60 days", "formula": "sum(dispatches_60d) / 60.0", "value": avg_daily_demand},
+                        {"step": 2, "description": "Compute runway stock cover days", "formula": "total_stock / avg_daily_demand", "value": cover_days},
+                        {"step": 3, "description": "Evaluate minimum safe stock threshold", "formula": "lead_time + 3", "value": threshold_days},
+                        {"step": 4, "description": "Calculate replenishment deficit aligned with MOQ", "formula": "max(moq, ceil(shortfall))", "value": recommended_reorder_qty},
+                    ],
+                    data_quality_warnings=["Pending inbound purchase orders not registered in ERP; assuming zero in-transit buffer."] if not db.query(PurchaseOrder).filter(PurchaseOrder.sku == prod.sku, PurchaseOrder.status == "ordered").first() else [],
                 ))
 
     return findings
