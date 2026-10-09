@@ -72,7 +72,7 @@ export default function FindingDetailPage() {
           currentUser.name,
           `Approved by ${currentUser.name} (${currentUser.roleTitle})`
         );
-        showToast(`Action ${finding.action_id} approved and executed into tamper-evident ledger`, "success");
+        showToast(`Action ${finding.action_id} authorized and executed into audit ledger`, "success");
       } else {
         if (!rejectionReason.trim()) {
           showToast("A rejection reason is required", "error");
@@ -117,7 +117,7 @@ export default function FindingDetailPage() {
       <div className="flex items-center justify-between">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition"
+          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-slate-900 transition"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Compliance Board
@@ -125,7 +125,7 @@ export default function FindingDetailPage() {
 
         <button
           onClick={() => setExplainOpen(!explainOpen)}
-          className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 px-3 py-1.5 rounded-lg border border-blue-500/20 bg-blue-500/10 min-h-[38px]"
+          className="inline-flex items-center gap-1.5 text-xs text-blue-700 hover:text-blue-900 px-3 py-1.5 rounded-lg border border-blue-200 bg-blue-50 font-medium min-h-[38px]"
         >
           <HelpCircle className="w-4 h-4" />
           Why this finding? (Explain Panel)
@@ -133,7 +133,7 @@ export default function FindingDetailPage() {
       </div>
 
       {/* Header Banner */}
-      <Card className="p-6 bg-slate-900 border-slate-800 space-y-4">
+      <Card className="p-6 bg-white border-slate-200 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
@@ -144,24 +144,24 @@ export default function FindingDetailPage() {
                 Severity Score: {finding.severity}
               </Badge>
             </div>
-            <h1 className="text-xl font-bold text-white tracking-tight">{finding.title}</h1>
-            <p className="text-sm text-slate-300">{finding.description}</p>
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight">{finding.title}</h1>
+            <p className="text-xs text-slate-600 leading-relaxed">{finding.description}</p>
           </div>
 
           {finding.deadline && (
-            <div className="px-3.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs shrink-0 flex items-center gap-2">
+            <div className="px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs shrink-0 flex items-center gap-1.5 font-medium">
               <Clock className="w-4 h-4" />
-              <span>Statutory Deadline: {new Date(finding.deadline).toLocaleDateString()}</span>
+              <span>Target Deadline: {new Date(finding.deadline).toLocaleDateString()}</span>
             </div>
           )}
         </div>
 
         {/* Deterministic Telemetry Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-800">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-100">
           {Object.entries(finding.metrics).map(([key, val]) => (
-            <div key={key} className="p-3 rounded-lg bg-slate-950/60 border border-slate-800/80">
-              <div className="text-[11px] text-slate-400 uppercase tracking-wider">{key.replace(/_/g, " ")}</div>
-              <div className="text-base font-semibold text-slate-100 mt-1">
+            <div key={key} className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+              <div className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">{key.replace(/_/g, " ")}</div>
+              <div className="text-base font-bold text-slate-900 mt-0.5">
                 {typeof val === "number" ? val.toLocaleString() : String(val)}
               </div>
             </div>
@@ -171,25 +171,25 @@ export default function FindingDetailPage() {
 
       {/* Explain Panel (Collapsible) */}
       {explainOpen && finding.explanation && (
-        <Card className="p-5 border-blue-500/30 bg-blue-950/20 space-y-3 animate-in fade-in duration-150">
-          <div className="flex items-center gap-2 text-sm font-semibold text-blue-300">
+        <Card className="p-5 border-blue-200 bg-blue-50/50 space-y-3 animate-in fade-in duration-150">
+          <div className="flex items-center gap-2 text-xs font-bold text-blue-900 uppercase tracking-wider">
             <HelpCircle className="w-4 h-4" />
-            Decision Engine Explanation & Formula Lineage
+            Decision Engine Explanation & Mathematical Lineage
           </div>
-          <div className="text-xs text-slate-300 font-mono bg-slate-950/80 p-3 rounded-lg border border-slate-800">
+          <div className="text-xs text-slate-800 font-mono bg-white p-3 rounded-lg border border-blue-200">
             Formula: {finding.explanation.formula}
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
             {Object.entries(finding.explanation.sub_scores).map(([k, v]) => (
-              <div key={k} className="p-2.5 rounded bg-slate-900 border border-slate-800 text-slate-300">
-                <span className="text-slate-400 capitalize">{k}: </span>
-                <span className="font-bold text-white">{v} / 100</span>
+              <div key={k} className="p-2.5 rounded bg-white border border-slate-200 text-slate-700">
+                <span className="text-slate-500 capitalize">{k}: </span>
+                <span className="font-bold text-slate-900">{v} / 100</span>
               </div>
             ))}
           </div>
           {finding.source_rows && finding.source_rows.length > 0 && (
-            <div className="text-xs text-slate-400 pt-2">
-              <span className="font-semibold text-slate-300">Source Database Records: </span>
+            <div className="text-[11px] text-slate-600 pt-1 font-mono">
+              <strong className="text-slate-800">Source Records: </strong>
               {JSON.stringify(finding.source_rows)}
             </div>
           )}
@@ -198,16 +198,16 @@ export default function FindingDetailPage() {
 
       {/* Options Comparator Matrix */}
       <div className="space-y-3">
-        <h2 className="text-base font-semibold text-white flex items-center gap-2">
-          <Layers className="w-5 h-5 text-blue-400" />
+        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+          <Layers className="w-4 h-4 text-slate-600" />
           Deterministic Options Comparison Matrix
         </h2>
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Candidate Strategy</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Key Computed Trade-offs</TableHead>
+              <TableHead>Operational Details</TableHead>
+              <TableHead>Computed Trade-offs</TableHead>
               <TableHead>Projected Outcome</TableHead>
             </TableRow>
           </TableHeader>
@@ -215,27 +215,27 @@ export default function FindingDetailPage() {
             {finding.options.map((opt) => {
               const isRecommended = finding.recommended_action?.chosen_option === opt.id;
               return (
-                <TableRow key={opt.id} className={isRecommended ? "bg-blue-950/30 border-l-4 border-blue-500" : ""}>
-                  <TableCell className="font-semibold text-slate-100">
+                <TableRow key={opt.id} className={isRecommended ? "bg-blue-50/60 border-l-4 border-blue-600" : ""}>
+                  <TableCell className="font-semibold text-slate-900">
                     <div className="flex items-center gap-2">
                       {opt.name}
                       {isRecommended && (
                         <Badge variant="info" size="sm">
-                          CHOSEN DRAFT
+                          CHOSEN
                         </Badge>
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-xs text-slate-300">{opt.description}</TableCell>
-                  <TableCell className="text-xs font-mono text-slate-300">
+                  <TableCell className="text-xs text-slate-600">{opt.description}</TableCell>
+                  <TableCell className="text-xs font-mono text-slate-800">
                     {Object.entries(opt.metrics).map(([k, v]) => (
                       <div key={k}>
                         <span className="text-slate-500">{k}: </span>
-                        <span>{String(v)}</span>
+                        <span className="font-semibold">{String(v)}</span>
                       </div>
                     ))}
                   </TableCell>
-                  <TableCell className="text-xs text-slate-400">{opt.projected_outcome}</TableCell>
+                  <TableCell className="text-xs text-slate-600">{opt.projected_outcome}</TableCell>
                 </TableRow>
               );
             })}
@@ -246,27 +246,27 @@ export default function FindingDetailPage() {
       {/* Agent Step Trace */}
       {finding.agent_trace && (
         <div className="space-y-3">
-          <h2 className="text-base font-semibold text-white flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-indigo-400" />
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-blue-600" />
             Agentic Execution Trace (Observe → Reason → Evaluate → Decide → Act → Explain)
           </h2>
           <div className="space-y-2.5">
             {finding.agent_trace.map((step) => (
-              <Card key={step.step} className="p-4 bg-slate-900/60 border-slate-800 text-xs space-y-2">
+              <Card key={step.step} className="p-4 bg-white border-slate-200 text-xs space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-blue-600/30 text-blue-400 flex items-center justify-center font-bold">
+                    <span className="w-5 h-5 rounded-md bg-slate-900 text-white flex items-center justify-center font-bold text-[11px]">
                       {step.step}
                     </span>
-                    <span className="font-semibold text-slate-200">{step.phase}:</span>
-                    <span className="text-slate-400">{step.action}</span>
+                    <span className="font-bold text-slate-900">{step.phase}:</span>
+                    <span className="text-slate-600">{step.action}</span>
                   </div>
-                  <span className="text-[11px] text-slate-500">
+                  <span className="text-[11px] text-slate-400">
                     {new Date(step.timestamp).toLocaleTimeString()}
                   </span>
                 </div>
-                <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-850 font-mono text-slate-300 overflow-x-auto">
-                  <span className="text-slate-500">Result: </span>
+                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 font-mono text-slate-800 overflow-x-auto text-[11px]">
+                  <span className="text-slate-500 font-semibold">Output: </span>
                   {typeof step.output === "object" ? JSON.stringify(step.output) : String(step.output)}
                 </div>
               </Card>
@@ -277,22 +277,22 @@ export default function FindingDetailPage() {
 
       {/* Action Approval Card */}
       {finding.recommended_action && (
-        <Card className="p-6 bg-slate-900 border-blue-500/30 shadow-xl space-y-4">
+        <Card className="p-6 bg-white border-slate-200 shadow-md space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
-                <FileCheck2 className="w-5 h-5 text-blue-400" />
-                <h3 className="text-base font-bold text-white">
-                  Drafted Action: {finding.recommended_action.type} ({finding.action_id})
+                <FileCheck2 className="w-5 h-5 text-slate-800" />
+                <h3 className="text-base font-bold text-slate-900">
+                  Draft Action: {finding.recommended_action.type} ({finding.action_id})
                 </h3>
               </div>
-              <p className="text-xs text-slate-400 mt-1">
-                Required Authorization Role:{" "}
-                <span className="text-blue-400 font-semibold uppercase">{finding.recommended_action.required_role}</span>
+              <p className="text-xs text-slate-500 mt-1">
+                Required Role Gate:{" "}
+                <span className="text-slate-900 font-bold uppercase">{finding.recommended_action.required_role}</span>
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
               <Button
                 variant="danger"
                 size="md"
@@ -319,24 +319,24 @@ export default function FindingDetailPage() {
           </div>
 
           {!isAuthorizedRole && (
-            <div className="p-3 rounded-lg bg-amber-950/30 border border-amber-500/30 text-xs text-amber-300 flex items-center gap-2">
+            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2">
               <Info className="w-4 h-4 shrink-0" />
               <span>
                 Your current role is <strong className="uppercase">{currentUser.role}</strong>. Approving this action requires{" "}
-                <strong className="uppercase">{requiredRole}</strong> or <strong>COMPLIANCE</strong>. Use the Role Switcher in the top navigation bar to test this gate.
+                <strong className="uppercase">{requiredRole}</strong> or <strong>COMPLIANCE</strong>. Switch persona via the top navigation bar.
               </span>
             </div>
           )}
 
-          <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 text-xs space-y-2">
+          <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-2">
             <div>
-              <span className="font-semibold text-slate-300">Agent Rationale: </span>
-              <span className="text-slate-300">{finding.recommended_action.rationale}</span>
+              <span className="font-semibold text-slate-900">Agent Rationale: </span>
+              <span className="text-slate-700">{finding.recommended_action.rationale}</span>
             </div>
             {finding.recommended_action.assumptions && finding.recommended_action.assumptions.length > 0 && (
               <div>
-                <span className="font-semibold text-slate-400">Explicit Assumptions: </span>
-                <ul className="list-disc list-inside text-slate-400 mt-1 space-y-0.5">
+                <span className="font-semibold text-slate-800">Explicit Assumptions: </span>
+                <ul className="list-disc list-inside text-slate-600 mt-1 space-y-0.5">
                   {finding.recommended_action.assumptions.map((a, i) => (
                     <li key={i}>{a}</li>
                   ))}
@@ -351,8 +351,8 @@ export default function FindingDetailPage() {
       <Modal
         isOpen={decisionModalOpen}
         onClose={() => setDecisionModalOpen(false)}
-        title={decisionType === "approve" ? "Authorize Gated Compliance Action" : "Reject Compliance Action"}
-        description={`Active Persona: ${currentUser.name} (${currentUser.roleTitle})`}
+        title={decisionType === "approve" ? "Authorize Compliance Action" : "Reject Compliance Action"}
+        description={`Signing Persona: ${currentUser.name} (${currentUser.roleTitle})`}
         footer={
           <>
             <Button variant="secondary" onClick={() => setDecisionModalOpen(false)}>
@@ -368,27 +368,26 @@ export default function FindingDetailPage() {
           </>
         }
       >
-        <div className="space-y-4 text-sm text-slate-300">
+        <div className="space-y-4 text-xs text-slate-700">
           {decisionType === "approve" ? (
             <div className="space-y-3">
               <p>
                 You are about to authorize <strong>{finding.recommended_action?.type}</strong> for Action{" "}
-                <code>{finding.action_id}</code>.
+                <code className="px-1 py-0.5 rounded bg-slate-100 border border-slate-200 font-bold">{finding.action_id}</code>.
               </p>
-              <p className="text-xs text-slate-400">
-                This execution will update ERP inventory state and write a tamper-evident event{" "}
-                <code>ACTION_APPROVED</code> to the SHA-256 hash-chained ledger.
+              <p className="text-slate-500">
+                This execution updates inventory status and commits an <code>ACTION_APPROVED</code> event to the SHA-256 hash-chained ledger.
               </p>
             </div>
           ) : (
             <div className="space-y-3">
-              <p>Please document the formal compliance reason for rejecting this drafted action:</p>
+              <p className="font-semibold text-slate-900">Document the compliance reason for rejecting this drafted action:</p>
               <textarea
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="Document reason for rejection (e.g. batch released under secondary QA variance protocol)..."
+                placeholder="State clinical or operational justification (e.g. alternate stock identified)..."
                 rows={4}
-                className="w-full p-3 rounded-lg bg-slate-950 border border-slate-700 text-slate-100 placeholder:text-slate-500 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-3 rounded-lg bg-white border border-slate-300 text-slate-900 placeholder:text-slate-400 text-xs focus:outline-none focus:ring-2 focus:ring-slate-900"
               />
             </div>
           )}

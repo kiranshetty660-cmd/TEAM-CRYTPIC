@@ -122,10 +122,10 @@ export default function VerifyPage() {
       {/* Header & Verification Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
             Tamper-Evident Audit Ledger & EVM Anchors
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Every state change is strictly hash-chained via SHA-256 with periodic Merkle root anchoring to Polygon Amoy testnet.
           </p>
         </div>
@@ -136,7 +136,7 @@ export default function VerifyPage() {
             size="sm"
             onClick={handleSimulateTamper}
             isLoading={tampering}
-            leftIcon={<PlayCircle className="w-4 h-4 text-red-200" />}
+            leftIcon={<PlayCircle className="w-4 h-4 text-white" />}
           >
             Simulate Tampering (Demo)
           </Button>
@@ -165,19 +165,19 @@ export default function VerifyPage() {
 
       {/* Verification Status Banner */}
       {loading ? (
-        <Skeleton className="h-28 w-full" />
+        <Skeleton className="h-24 w-full" />
       ) : verifyResult?.ok ? (
-        <Card className="p-5 bg-emerald-950/20 border-emerald-500/40 space-y-2">
+        <Card className="p-5 bg-emerald-50/70 border-emerald-200 shadow-sm space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                <CheckCircle2 className="w-6 h-6" />
+              <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                <CheckCircle2 className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-emerald-300">
+                <h3 className="text-sm font-bold text-emerald-900">
                   Cryptographic Chain Integrity Confirmed (100% Valid)
                 </h3>
-                <p className="text-xs text-slate-300">
+                <p className="text-xs text-emerald-700 mt-0.5">
                   All {verifyResult.checked} consecutive events pass SHA-256 forward-link validation from Genesis block.
                 </p>
               </div>
@@ -188,18 +188,18 @@ export default function VerifyPage() {
           </div>
         </Card>
       ) : (
-        <Card className="p-5 bg-red-950/30 border-red-500/60 space-y-3 animate-in shake duration-300">
+        <Card className="p-5 bg-red-50 border-red-300 shadow-sm space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-red-500/20 text-red-400 flex items-center justify-center">
-                <XCircle className="w-6 h-6" />
+              <div className="w-9 h-9 rounded-lg bg-red-100 text-red-600 flex items-center justify-center">
+                <XCircle className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-red-300">
+                <h3 className="text-sm font-bold text-red-900">
                   Database Tampering Detected at Sequence #{verifyResult?.first_bad_seq}!
                 </h3>
-                <p className="text-xs text-slate-300">
-                  Hash pointer mismatch detected. The event payload or hash was maliciously altered outside the protocol.
+                <p className="text-xs text-red-700 mt-0.5">
+                  Hash pointer mismatch detected. The event payload or hash was altered outside the compliance protocol.
                 </p>
               </div>
             </div>
@@ -209,7 +209,7 @@ export default function VerifyPage() {
           </div>
 
           {verifyResult?.diff && (
-            <div className="p-3 rounded-lg bg-slate-950 border border-red-900/60 text-xs font-mono text-red-300">
+            <div className="p-3 rounded-lg bg-white border border-red-200 text-xs font-mono text-red-900">
               <div>Reason: {verifyResult.diff.reason}</div>
               <div>Corrupted Sequence: #{verifyResult.diff.seq}</div>
               {verifyResult.diff.expected_hash && (
@@ -226,8 +226,8 @@ export default function VerifyPage() {
       {/* Merkle Root Anchors to EVM */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-white flex items-center gap-2">
-            <Lock className="w-5 h-5 text-purple-400" />
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+            <Lock className="w-4 h-4 text-purple-700" />
             EVM Blockchain Anchors (Polygon Amoy / Fallback)
           </h2>
 
@@ -255,18 +255,18 @@ export default function VerifyPage() {
           <TableBody>
             {anchors.length === 0 ? (
               <TableRow>
-                <TableCell className="text-slate-500 italic" colSpan={6}>
+                <TableCell className="text-slate-400 italic" colSpan={6}>
                   No anchors committed yet. Click 'Trigger New Anchor' above.
                 </TableCell>
               </TableRow>
             ) : (
               anchors.map((a) => (
                 <TableRow key={a.id}>
-                  <TableCell className="font-mono font-bold text-white">#{a.id}</TableCell>
-                  <TableCell className="text-xs text-slate-300">
+                  <TableCell className="font-mono font-bold text-slate-900">#{a.id}</TableCell>
+                  <TableCell className="text-xs text-slate-600">
                     Seq {a.from_seq} → {a.to_seq}
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-blue-300 truncate max-w-xs">
+                  <TableCell className="font-mono text-xs text-blue-700 truncate max-w-xs font-semibold">
                     {a.merkle_root}
                   </TableCell>
                   <TableCell>
@@ -274,7 +274,7 @@ export default function VerifyPage() {
                       {a.chain === "amoy" ? "POLYGON AMOY" : "SIMULATED ANCHOR"}
                     </Badge>
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-slate-400 truncate max-w-xs">
+                  <TableCell className="font-mono text-xs text-slate-500 truncate max-w-xs">
                     {a.tx_hash}
                   </TableCell>
                   <TableCell>
@@ -291,8 +291,8 @@ export default function VerifyPage() {
 
       {/* Live Hash-Chained Audit Ledger Explorer */}
       <div className="space-y-3">
-        <h2 className="text-base font-semibold text-white flex items-center gap-2">
-          <Layers className="w-5 h-5 text-blue-400" />
+        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+          <Layers className="w-4 h-4 text-slate-600" />
           Sequential Audit Ledger Stream (Latest Events)
         </h2>
 
@@ -310,20 +310,20 @@ export default function VerifyPage() {
           <TableBody>
             {ledgerEntries.map((e) => (
               <TableRow key={e.seq}>
-                <TableCell className="font-mono font-bold text-blue-400">#{e.seq}</TableCell>
-                <TableCell className="text-xs text-slate-400">{new Date(e.ts).toLocaleTimeString()}</TableCell>
+                <TableCell className="font-mono font-bold text-blue-700">#{e.seq}</TableCell>
+                <TableCell className="text-xs text-slate-500">{new Date(e.ts).toLocaleTimeString()}</TableCell>
                 <TableCell>
                   <Badge variant="info" size="sm">
                     {e.event_type}
                   </Badge>
                 </TableCell>
-                <TableCell className="font-mono text-xs text-slate-300 max-w-md truncate">
+                <TableCell className="font-mono text-xs text-slate-700 max-w-md truncate">
                   {JSON.stringify(e.payload)}
                 </TableCell>
-                <TableCell className="font-mono text-[11px] text-slate-500 truncate max-w-[120px]">
+                <TableCell className="font-mono text-[11px] text-slate-400 truncate max-w-[120px]">
                   {e.prev_hash}
                 </TableCell>
-                <TableCell className="font-mono text-[11px] text-emerald-400 truncate max-w-[120px]">
+                <TableCell className="font-mono text-[11px] text-slate-900 font-bold truncate max-w-[120px]">
                   {e.hash}
                 </TableCell>
               </TableRow>

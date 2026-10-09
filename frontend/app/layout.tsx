@@ -5,8 +5,8 @@ import { UserProvider } from "../lib/UserContext";
 import { ToastProvider } from "../components/ui/Toast";
 
 export const metadata: Metadata = {
-  title: "TraceRx | Agentic Compliance Desk",
-  description: "Tamper-evident agentic compliance desk for Arogya Pharma Distributors with deterministic risk evaluation, hash-chained ledger, and EVM anchoring.",
+  title: "TraceRx — Compliance Intelligence Desk",
+  description: "Enterprise agentic compliance desk for Arogya Pharma Distributors with deterministic risk auditing, hash-chained ledger, and EVM anchoring.",
 };
 
 export default function RootLayout({
@@ -15,8 +15,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-slate-950 text-slate-100 min-h-screen flex flex-col pb-16 md:pb-0">
+    <html lang="en" className="light">
+      <body className="bg-slate-50 text-slate-900 min-h-screen flex flex-col pb-16 md:pb-0 antialiased selection:bg-blue-100 selection:text-blue-900">
         <UserProvider>
           <ToastProvider>
             <Navbar />

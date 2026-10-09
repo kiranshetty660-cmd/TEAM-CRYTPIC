@@ -95,18 +95,18 @@ export default function BoardPage() {
   const getFindingIcon = (type: string) => {
     switch (type) {
       case "recall":
-        return <ShieldAlert className="w-5 h-5 text-red-400" />;
+        return <ShieldAlert className="w-5 h-5 text-red-600" />;
       case "coldchain":
-        return <ThermometerSnowflake className="w-5 h-5 text-cyan-400" />;
+        return <ThermometerSnowflake className="w-5 h-5 text-blue-600" />;
       case "critical":
-        return <AlertTriangle className="w-5 h-5 text-amber-400" />;
+        return <AlertTriangle className="w-5 h-5 text-amber-600" />;
       case "returnwindow":
       case "expiry":
-        return <Clock className="w-5 h-5 text-purple-400" />;
+        return <Clock className="w-5 h-5 text-purple-600" />;
       case "fefo":
-        return <Layers className="w-5 h-5 text-blue-400" />;
+        return <Layers className="w-5 h-5 text-indigo-600" />;
       default:
-        return <AlertTriangle className="w-5 h-5 text-slate-400" />;
+        return <AlertTriangle className="w-5 h-5 text-slate-500" />;
     }
   };
 
@@ -117,16 +117,16 @@ export default function BoardPage() {
   return (
     <div className="space-y-6">
       {/* Top Header & Action Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
             Compliance Intelligence Desk
-            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
+            <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">
               Live Network
             </span>
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Monitoring 3 warehouses, 400 chemists, and 20 hospital supply lines.
+          <p className="text-xs text-slate-500 mt-1">
+            Monitoring 3 distribution hubs (Bengaluru, Hubballi, Mysuru), 400 retail pharmacies, and 20 hospitals.
           </p>
         </div>
 
@@ -136,7 +136,7 @@ export default function BoardPage() {
             size="sm"
             onClick={handleReplayB2231}
             isLoading={replaying}
-            leftIcon={<PlayCircle className="w-4 h-4 text-amber-400" />}
+            leftIcon={<PlayCircle className="w-4 h-4 text-amber-600" />}
           >
             Replay B2231 Recall
           </Button>
@@ -155,58 +155,58 @@ export default function BoardPage() {
 
       {/* KPI Metric Strip */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
-        <Card className="p-4 bg-slate-900/90 border-slate-800">
+        <Card className="p-4 bg-white border-slate-200">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Open Recalls</span>
-            <ShieldAlert className="w-4 h-4 text-red-400" />
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Open Recalls</span>
+            <ShieldAlert className="w-4 h-4 text-red-500" />
           </div>
-          <div className="mt-2 text-2xl font-bold text-slate-100">{data?.kpis.open_recalls ?? 0}</div>
-          <p className="text-[11px] text-red-400/80 mt-0.5">Statutory Class I/II alerts</p>
+          <div className="mt-2 text-2xl font-bold text-slate-900">{data?.kpis.open_recalls ?? 0}</div>
+          <p className="text-[11px] text-red-600 mt-0.5 font-medium">Class I & II active alerts</p>
         </Card>
 
-        <Card className="p-4 bg-slate-900/90 border-slate-800">
+        <Card className="p-4 bg-white border-slate-200">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Cold Breaches</span>
-            <ThermometerSnowflake className="w-4 h-4 text-cyan-400" />
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Cold Breaches</span>
+            <ThermometerSnowflake className="w-4 h-4 text-blue-500" />
           </div>
-          <div className="mt-2 text-2xl font-bold text-slate-100">{data?.kpis.cold_breaches ?? 0}</div>
-          <p className="text-[11px] text-cyan-400/80 mt-0.5">&gt;30m 2-8°C excursions</p>
+          <div className="mt-2 text-2xl font-bold text-slate-900">{data?.kpis.cold_breaches ?? 0}</div>
+          <p className="text-[11px] text-blue-600 mt-0.5 font-medium">&gt;30m 2-8°C excursions</p>
         </Card>
 
-        <Card className="p-4 bg-slate-900/90 border-slate-800">
+        <Card className="p-4 bg-white border-slate-200">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Value At Risk</span>
-            <DollarSign className="w-4 h-4 text-amber-400" />
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Value At Risk</span>
+            <DollarSign className="w-4 h-4 text-amber-500" />
           </div>
-          <div className="mt-2 text-2xl font-bold text-slate-100">
+          <div className="mt-2 text-2xl font-bold text-slate-900">
             ₹{((data?.kpis.value_at_risk_inr ?? 0) / 1000).toFixed(1)}k
           </div>
-          <p className="text-[11px] text-amber-400/80 mt-0.5">Expiring / at-risk stock</p>
+          <p className="text-[11px] text-amber-700 mt-0.5 font-medium">Near-expiry stock</p>
         </Card>
 
-        <Card className="p-4 bg-slate-900/90 border-slate-800">
+        <Card className="p-4 bg-white border-slate-200">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Pending Approvals</span>
-            <FileCheck2 className="w-4 h-4 text-blue-400" />
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Pending Approvals</span>
+            <FileCheck2 className="w-4 h-4 text-indigo-500" />
           </div>
-          <div className="mt-2 text-2xl font-bold text-slate-100">{data?.kpis.pending_approvals ?? 0}</div>
-          <p className="text-[11px] text-blue-400/80 mt-0.5">Gated compliance actions</p>
+          <div className="mt-2 text-2xl font-bold text-slate-900">{data?.kpis.pending_approvals ?? 0}</div>
+          <p className="text-[11px] text-indigo-600 mt-0.5 font-medium">Gated human sign-offs</p>
         </Card>
 
-        <Card className="p-4 bg-slate-900/90 border-slate-800 col-span-2 lg:col-span-1">
+        <Card className="p-4 bg-white border-slate-200 col-span-2 lg:col-span-1">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Quarantined</span>
-            <TrendingDown className="w-4 h-4 text-purple-400" />
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Quarantined</span>
+            <TrendingDown className="w-4 h-4 text-purple-500" />
           </div>
-          <div className="mt-2 text-2xl font-bold text-slate-100">{data?.kpis.quarantined_batches ?? 0}</div>
-          <p className="text-[11px] text-purple-400/80 mt-0.5">Batches locked for QA</p>
+          <div className="mt-2 text-2xl font-bold text-slate-900">{data?.kpis.quarantined_batches ?? 0}</div>
+          <p className="text-[11px] text-purple-600 mt-0.5 font-medium">Batches on QA hold</p>
         </Card>
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-800/80 scrollbar-none">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-200">
         {[
-          { id: "all", label: "All Risk Findings" },
+          { id: "all", label: "All Findings" },
           { id: "recall", label: "Recalls" },
           { id: "coldchain", label: "Cold Chain" },
           { id: "expiry", label: "Near-Expiry / RMA" },
@@ -216,10 +216,10 @@ export default function BoardPage() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition whitespace-nowrap min-h-[38px] ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition whitespace-nowrap min-h-[38px] ${
               activeTab === tab.id
-                ? "bg-blue-600/20 text-blue-400 border border-blue-500/30"
-                : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                ? "bg-slate-900 text-white font-semibold"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
             }`}
           >
             {tab.label}
@@ -235,10 +235,10 @@ export default function BoardPage() {
           <CardSkeleton />
         </div>
       ) : filteredFindings.length === 0 ? (
-        <Card className="p-12 text-center text-slate-400">
-          <Sparkles className="w-10 h-10 mx-auto mb-3 text-slate-500" />
-          <h3 className="text-base font-semibold text-slate-200">No active compliance alerts in this category</h3>
-          <p className="text-sm mt-1 text-slate-400">All distribution nodes meet statutory compliance parameters.</p>
+        <Card className="p-12 text-center text-slate-500 bg-white">
+          <Sparkles className="w-8 h-8 mx-auto mb-2.5 text-slate-400" />
+          <h3 className="text-sm font-semibold text-slate-800">No active compliance alerts in this category</h3>
+          <p className="text-xs mt-1 text-slate-500">All inventory batches satisfy regulatory and quality guidelines.</p>
         </Card>
       ) : (
         <div className="space-y-4">
@@ -246,24 +246,24 @@ export default function BoardPage() {
             <Card
               key={finding.id}
               hoverEffect
-              className="p-5 border-slate-800 hover:border-slate-700 bg-slate-900/90 transition-all"
+              className="p-5 bg-white border-slate-200 shadow-sm"
             >
               <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                 {/* Left Finding Information */}
                 <div className="space-y-2 flex-1">
                   <div className="flex items-center gap-2.5 flex-wrap">
-                    <div className="p-2 rounded-lg bg-slate-800/80 border border-slate-700/50">
+                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
                       {getFindingIcon(finding.type)}
                     </div>
                     <div>
-                      <h3 className="text-base font-bold text-slate-100 tracking-tight">
+                      <h3 className="text-base font-bold text-slate-900 tracking-tight">
                         {finding.title}
                       </h3>
-                      <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
-                        <span className="capitalize font-medium text-slate-300">{finding.type} Risk</span>
+                      <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                        <span className="capitalize font-medium text-slate-700">{finding.type} Risk</span>
                         <span>•</span>
                         {finding.deadline && (
-                          <span className="flex items-center gap-1 text-amber-400">
+                          <span className="flex items-center gap-1 text-amber-700 font-medium">
                             <Clock className="w-3.5 h-3.5" />
                             Target resolution: {new Date(finding.deadline).toLocaleDateString()}
                           </span>
@@ -272,19 +272,19 @@ export default function BoardPage() {
                     </div>
                   </div>
 
-                  <p className="text-sm text-slate-300 leading-relaxed pt-1">
+                  <p className="text-xs text-slate-700 leading-relaxed pt-1">
                     {finding.description}
                   </p>
 
                   {/* Evidence Telemetry Pills */}
-                  <div className="flex items-center gap-3 pt-2 flex-wrap">
+                  <div className="flex items-center gap-2 pt-1.5 flex-wrap">
                     {Object.entries(finding.metrics).slice(0, 4).map(([k, v]) => (
                       <div
                         key={k}
-                        className="px-2.5 py-1 rounded-md bg-slate-800/60 border border-slate-700/40 text-[11px] text-slate-300"
+                        className="px-2.5 py-1 rounded bg-slate-50 border border-slate-200 text-[11px] text-slate-700"
                       >
-                        <span className="text-slate-400 mr-1.5">{k.replace(/_/g, " ")}:</span>
-                        <span className="font-semibold text-slate-200">
+                        <span className="text-slate-500 mr-1.5">{k.replace(/_/g, " ")}:</span>
+                        <span className="font-semibold text-slate-900">
                           {typeof v === "number" ? (v > 1000 ? `₹${v.toLocaleString()}` : v) : String(v)}
                         </span>
                       </div>
@@ -293,11 +293,11 @@ export default function BoardPage() {
 
                   {/* Agent Recommended Action Draft Notice */}
                   {finding.recommended_action && (
-                    <div className="mt-3 p-3 rounded-lg bg-blue-950/20 border border-blue-900/40 flex items-start gap-2.5">
-                      <Sparkles className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" />
+                    <div className="mt-3 p-3 rounded-lg bg-slate-50 border border-slate-200 flex items-start gap-2.5">
+                      <Sparkles className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
                       <div className="text-xs">
-                        <span className="font-semibold text-blue-300">Agent Recommendation ({finding.recommended_action.chosen_option}): </span>
-                        <span className="text-slate-300">{finding.recommended_action.rationale}</span>
+                        <span className="font-semibold text-slate-900">Agent Recommendation ({finding.recommended_action.chosen_option}): </span>
+                        <span className="text-slate-700">{finding.recommended_action.rationale}</span>
                       </div>
                     </div>
                   )}
@@ -308,7 +308,7 @@ export default function BoardPage() {
                   <div className="flex items-center gap-2">
                     {finding.explanation?.is_pinned && (
                       <Badge variant="danger" size="sm">
-                        PINNED PRIORITY
+                        PINNED
                       </Badge>
                     )}
                     <Badge variant={getSeverityBadgeVariant(finding.severity)} size="lg">
@@ -317,7 +317,7 @@ export default function BoardPage() {
                   </div>
 
                   <Link href={`/findings/${finding.id}`}>
-                    <Button variant="primary" size="sm" rightIcon={<ArrowRight className="w-4 h-4" />}>
+                    <Button variant="secondary" size="sm" rightIcon={<ArrowRight className="w-4 h-4" />}>
                       Evaluate & Decide
                     </Button>
                   </Link>

@@ -93,33 +93,33 @@ export default function ApprovalsPage() {
   return (
     <div className="space-y-6">
       {/* Role Switcher Banner */}
-      <Card className="p-4 bg-slate-900 border-blue-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <Card className="p-4 bg-white border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${currentUser.avatar}`}>
+          <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-xs ${currentUser.avatar}`}>
             {currentUser.initials}
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-white">{currentUser.name}</span>
+              <span className="text-sm font-bold text-slate-900">{currentUser.name}</span>
               <Badge variant="info" size="sm">
                 ROLE: {currentUser.role.toUpperCase()}
               </Badge>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">{currentUser.roleTitle}</p>
+            <p className="text-xs text-slate-500 mt-0.5">{currentUser.roleTitle}</p>
           </div>
         </div>
 
         {/* Quick Role Switch Buttons */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-          <span className="text-xs text-slate-400 mr-2 shrink-0">Switch Persona:</span>
+          <span className="text-xs text-slate-500 mr-2 shrink-0 font-medium">Switch Persona:</span>
           {users.map((u) => (
             <button
               key={u.id}
               onClick={() => setCurrentUser(u)}
               className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition shrink-0 min-h-[38px] ${
                 currentUser.id === u.id
-                  ? "bg-blue-600 text-white font-bold"
-                  : "bg-slate-950 text-slate-400 border border-slate-800 hover:text-white"
+                  ? "bg-slate-900 text-white font-bold"
+                  : "bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100"
               }`}
             >
               {u.role.toUpperCase()}
@@ -131,15 +131,15 @@ export default function ApprovalsPage() {
       {/* Header & Filter Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
             Human-in-the-Loop Approvals Queue
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Zero actions execute autonomously. Pharmacists and compliance officers retain exclusive authorization authority.
           </p>
         </div>
 
-        <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800">
+        <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
           {[
             { id: "pending_approval", label: "Pending Approval" },
             { id: "executed", label: "Executed" },
@@ -149,10 +149,10 @@ export default function ApprovalsPage() {
             <button
               key={tab.id}
               onClick={() => setStatusFilter(tab.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition min-h-[36px] ${
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition min-h-[36px] ${
                 statusFilter === tab.id
-                  ? "bg-blue-600/20 text-blue-400 border border-blue-500/30"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "bg-slate-900 text-white font-semibold"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
               {tab.label}
@@ -181,7 +181,7 @@ export default function ApprovalsPage() {
             return (
               <Card
                 key={action.id}
-                className="p-5 bg-slate-900 border-slate-800 hover:border-slate-700 transition space-y-4"
+                className="p-5 bg-white border-slate-200 hover:border-slate-300 shadow-sm transition space-y-4"
               >
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                   <div className="space-y-1">
@@ -198,17 +198,17 @@ export default function ApprovalsPage() {
                       >
                         {action.status.toUpperCase()}
                       </Badge>
-                      <span className="font-mono text-xs text-slate-400">{action.id}</span>
-                      <span className="text-xs text-slate-500">•</span>
-                      <span className="text-xs text-slate-400">
+                      <span className="font-mono text-xs text-slate-500 font-bold">{action.id}</span>
+                      <span className="text-xs text-slate-300">•</span>
+                      <span className="text-xs text-slate-500">
                         {new Date(action.created_at).toLocaleString()}
                       </span>
                     </div>
 
-                    <h3 className="text-base font-bold text-white tracking-tight mt-1">
+                    <h3 className="text-base font-bold text-slate-900 tracking-tight mt-1">
                       {action.type.replace(/_/g, " ")}: {action.payload?.entities?.brand || action.payload?.entities?.sku || "Operational Mitigation"}
                     </h3>
-                    <p className="text-xs text-slate-300 leading-relaxed">
+                    <p className="text-xs text-slate-600 leading-relaxed">
                       {action.payload?.rationale}
                     </p>
                   </div>
@@ -216,7 +216,7 @@ export default function ApprovalsPage() {
                   {/* Role Gate & Actions */}
                   <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-3 shrink-0">
                     <div className="text-right">
-                      <span className="text-[11px] text-slate-500 uppercase tracking-wider block">Required Role</span>
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Required Role</span>
                       <Badge variant="purple" size="sm">
                         {action.required_role.toUpperCase()}
                       </Badge>
@@ -252,14 +252,14 @@ export default function ApprovalsPage() {
 
                 {/* Decision Stamp if Resolved */}
                 {action.decided_by && (
-                  <div className="pt-3 border-t border-slate-800 text-xs text-slate-400 flex items-center justify-between">
+                  <div className="pt-3 border-t border-slate-100 text-xs text-slate-500 flex items-center justify-between">
                     <div>
-                      <span className="text-slate-500">Decided by: </span>
-                      <span className="font-semibold text-slate-300">{action.decided_by}</span>
-                      {action.reason && <span className="text-slate-400 italic"> — "{action.reason}"</span>}
+                      <span className="font-medium text-slate-400">Decided by: </span>
+                      <span className="font-semibold text-slate-800">{action.decided_by}</span>
+                      {action.reason && <span className="text-slate-600 italic"> — "{action.reason}"</span>}
                     </div>
                     {action.decided_at && (
-                      <span>{new Date(action.decided_at).toLocaleString()}</span>
+                      <span className="text-slate-400">{new Date(action.decided_at).toLocaleString()}</span>
                     )}
                   </div>
                 )}
@@ -279,7 +279,7 @@ export default function ApprovalsPage() {
               ? `Authorize ${selectedAction.type}`
               : `Reject ${selectedAction.type}`
           }
-          description={`Signing as: ${currentUser.name} (${currentUser.roleTitle})`}
+          description={`Signing Persona: ${currentUser.name} (${currentUser.roleTitle})`}
           footer={
             <>
               <Button variant="secondary" onClick={() => setSelectedAction(null)}>
@@ -295,30 +295,30 @@ export default function ApprovalsPage() {
             </>
           }
         >
-          <div className="space-y-4 text-sm text-slate-300">
+          <div className="space-y-4 text-xs text-slate-700">
             {actionTypeDecision === "approve" ? (
               <div className="space-y-3">
                 <p>
                   You are about to authorize action <strong>{selectedAction.id}</strong>.
                 </p>
-                <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono">
+                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 font-mono text-[11px] text-slate-800">
                   <div>Type: {selectedAction.type}</div>
                   <div>Chosen Strategy: {selectedAction.chosen_option}</div>
                   <div>Gated Role: {selectedAction.required_role}</div>
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-slate-500">
                   This execution commits directly into the tamper-evident SHA-256 hash-chained ledger and triggers simulated ERP inventory updates.
                 </p>
               </div>
             ) : (
               <div className="space-y-3">
-                <p>Please enter a compliance reason for rejecting this drafted action:</p>
+                <p className="font-semibold text-slate-900">Please enter a compliance reason for rejecting this drafted action:</p>
                 <textarea
                   value={reasonText}
                   onChange={(e) => setReasonText(e.target.value)}
                   placeholder="State clinical or operational justification (e.g. alternate supplier confirmed)..."
                   rows={4}
-                  className="w-full p-3 rounded-lg bg-slate-950 border border-slate-700 text-slate-100 placeholder:text-slate-500 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 rounded-lg bg-white border border-slate-300 text-slate-900 placeholder:text-slate-400 text-xs focus:outline-none focus:ring-2 focus:ring-slate-900"
                 />
               </div>
             )}
