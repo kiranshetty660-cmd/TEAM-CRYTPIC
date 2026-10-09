@@ -1,0 +1,14 @@
+{
+  "name": "tracerx-contracts",
+  "version": "1.0.0",
+  "description": "TraceRx EVM Audit Anchor Smart Contracts",
+  "scripts": {
+    "test": "npx hardhat test",
+    "compile": "npx hardhat compile",
+    "deploy:amoy": "npx hardhat run scripts/deploy.js --network amoy"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.2"
+  }
+}

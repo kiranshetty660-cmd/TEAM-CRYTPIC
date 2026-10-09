@@ -1,0 +1,209 @@
+export type Role = "pharmacist" | "compliance" | "purchase" | "warehouse" | "auditor";
+
+export interface DemoUser {
+  id: string;
+  name: string;
+  role: Role;
+  roleTitle: string;
+  avatar: string;
+  initials: string;
+}
+
+export const DEMO_USERS: DemoUser[] = [
+  {
+    id: "usr_1",
+    name: "Dr. Sneha Rao",
+    role: "pharmacist",
+    roleTitle: "Chief Pharmacist (Responsible Person)",
+    avatar: "bg-blue-600 text-white",
+    initials: "SR",
+  },
+  {
+    id: "usr_2",
+    name: "Arun Kumar",
+    role: "compliance",
+    roleTitle: "Regulatory Compliance Lead",
+    avatar: "bg-emerald-600 text-white",
+    initials: "AK",
+  },
+  {
+    id: "usr_3",
+    name: "Pooja Sharma",
+    role: "purchase",
+    roleTitle: "Procurement & Purchase Manager",
+    avatar: "bg-purple-600 text-white",
+    initials: "PS",
+  },
+  {
+    id: "usr_4",
+    name: "Vikram Singh",
+    role: "warehouse",
+    roleTitle: "Distribution & Warehouse Operations Head",
+    avatar: "bg-amber-600 text-white",
+    initials: "VS",
+  },
+  {
+    id: "usr_5",
+    name: "Devika Menon",
+    role: "auditor",
+    roleTitle: "External Qualified Auditor",
+    avatar: "bg-slate-600 text-white",
+    initials: "DM",
+  },
+];
+
+export interface FindingOption {
+  id: string;
+  name: string;
+  description: string;
+  metrics: Record<string, any>;
+  projected_outcome: string;
+}
+
+export interface AgentTraceStep {
+  step: number;
+  phase: string;
+  action: string;
+  input: any;
+  output: any;
+  timestamp: string;
+}
+
+export interface Finding {
+  id: string;
+  type: "recall" | "coldchain" | "expiry" | "returnwindow" | "fefo" | "critical";
+  severity: number;
+  title: string;
+  description: string;
+  entities: Record<string, any>;
+  metrics: Record<string, any>;
+  deadline?: string;
+  options: FindingOption[];
+  recommended_action?: {
+    action_id: string;
+    type: string;
+    chosen_option: string;
+    rationale: string;
+    confidence: number;
+    required_role: Role;
+    assumptions: string[];
+  };
+  explanation?: {
+    formula: string;
+    weights: Record<string, number>;
+    sub_scores: Record<string, number>;
+    is_pinned: boolean;
+    final_score: number;
+  };
+  agent_trace?: AgentTraceStep[];
+  action_id?: string;
+  source_rows?: any[];
+}
+
+export interface BoardKPI {
+  open_recalls: number;
+  cold_breaches: number;
+  value_at_risk_inr: number;
+  pending_approvals: number;
+  quarantined_batches: number;
+}
+
+export interface BoardResponse {
+  kpis: BoardKPI;
+  findings: Finding[];
+  weights: Record<string, number>;
+  scanned_at: string;
+}
+
+export interface BatchTraceForwardCustomer {
+  customer_id: string;
+  name: string;
+  type: string;
+  location: string;
+  dispatched_qty: number;
+  dispatches_count: number;
+  last_dispatch_date: string;
+}
+
+export interface BatchTraceWarehouseLocation {
+  warehouse: string;
+  cold_room?: string;
+  qty: number;
+  status: string;
+  mfg_date: string;
+  expiry_date: string;
+}
+
+export interface BatchTraceBackwardManufacturer {
+  manufacturer: string;
+  lead_time_days: number;
+  moq: number;
+  return_window_days: number;
+  credit_pct: number;
+  purchase_orders: any[];
+}
+
+export interface BatchTraceResponse {
+  batch: string;
+  sku: string;
+  product_name: string;
+  molecule: string;
+  storage: string;
+  critical_drug: boolean;
+  current_locations: BatchTraceWarehouseLocation[];
+  forward_customers: BatchTraceForwardCustomer[];
+  backward_manufacturer?: BatchTraceBackwardManufacturer;
+  total_stock_in_wh: number;
+  total_dispatched: number;
+  customers_count: number;
+  hospitals_count: number;
+  chemists_count: number;
+}
+
+export interface ActionItem {
+  id: string;
+  type: string;
+  payload: Record<string, any>;
+  evidence: Record<string, any>;
+  options: any[];
+  chosen_option?: string;
+  status: "draft" | "pending_approval" | "approved" | "executed" | "rejected";
+  required_role: Role;
+  created_at: string;
+  decided_by?: string;
+  decided_at?: string;
+  reason?: string;
+}
+
+export interface LedgerEntry {
+  seq: number;
+  ts: string;
+  event_type: string;
+  payload: Record<string, any>;
+  prev_hash: string;
+  hash: string;
+}
+
+export interface AnchorItem {
+  id: number;
+  from_seq: number;
+  to_seq: number;
+  merkle_root: string;
+  tx_hash: string;
+  chain: string;
+  status: string;
+}
+
+export interface LedgerVerifyResult {
+  ok: boolean;
+  checked: number;
+  first_bad_seq?: number;
+  diff?: {
+    seq: number;
+    reason: string;
+    expected_hash?: string;
+    stored_hash?: string;
+    expected_prev_hash?: string;
+    actual_prev_hash?: string;
+  };
+}
