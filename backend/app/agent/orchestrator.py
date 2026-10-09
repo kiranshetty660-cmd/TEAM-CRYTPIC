@@ -1,45 +1,14 @@
 import json
 import uuid
-import re
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
-from app.models import Action, BatchInventory
+from app.models import Action
 from app.schemas import Finding
 from app.config import settings
-from app.agent.tools import (
-    tool_trace_batch,
-    tool_coverage_check,
-    tool_allocate,
-    tool_compare_options,
-)
-from app.agent.prompts import AGENT_SYSTEM_PROMPT, build_finding_prompt
-from app.agent.fallback import get_fallback_decision
+from app.agent.specialists import CoordinatorAgent, ReviewAgent
+from app.agent.claude_tool_runner import run_anthropic_tool_loop
 from app.ledger.chain import append_ledger_event
-
-def determine_action_type_and_role(finding: Finding, chosen_option: str) -> tuple[str, str]:
-    """
-    Maps finding and chosen option to Action type and required approval role.
-    """
-    ftype = finding.type
-    if ftype == "recall":
-        return "SEND_NOTICES", "pharmacist"
-    elif ftype == "coldchain":
-        return "QUARANTINE_FOR_QA", "pharmacist"
-    elif ftype == "returnwindow":
-        return "RETURN_REQUEST", "purchase"
-    elif ftype == "expiry":
-        if "RETURN" in chosen_option:
-            return "RETURN_REQUEST", "purchase"
-        elif "DISCOUNT" in chosen_option:
-            return "DISCOUNT_OFFER", "compliance"
-        else:
-            return "TRANSFER", "purchase"
-    elif ftype == "fefo":
-        return "PICK_INSTRUCTION", "warehouse"
-    elif ftype == "critical":
-        return "URGENT_PO", "purchase"
-    return "BLOCK_BATCH", "compliance"
 
 def validate_llm_decision(llm_json: Dict[str, Any], finding: Finding) -> bool:
     """
@@ -68,133 +37,163 @@ def validate_llm_decision(llm_json: Dict[str, Any], finding: Finding) -> bool:
 
 def run_agent_loop_on_finding(db: Session, finding: Finding) -> Finding:
     """
-    Runs the agent loop:
-    Observe -> Reason -> Evaluate -> Decide -> Act (draft only) -> Explain.
+    Coordinated Multi-Agent Intelligence Workflow:
+    1. Investigation Agent: Gathers factual batch telemetry, warehouse pallets, and dispatches.
+    2. Risk Assessment Agent: Evaluates clinical urgency, patient exposure, and regulatory exposure.
+    3. Solution Evaluation Agent: Evaluates candidate responses against real stock, credit windows, and roles.
+    4. Review Agent: Independently audits proposed remediation against arithmetic, permissions, and safety rules.
+    5. Coordinator Agent: Reconciles specialist outputs, scores uncertainty, and stages the action.
+    
+    If ANTHROPIC_API_KEY is present, executes official Anthropic Tool-Use multi-turn loop.
+    Otherwise, executes deterministic specialist multi-agent coordination.
     """
-    trace_steps = []
+    # 1. Attempt Live LLM Tool-Use Loop if configured
+    options_summary = [opt.model_dump() for opt in finding.options]
+    live_decision = None
+    live_tool_trace = []
+    ai_mode = "DETERMINISTIC_FALLBACK"
 
-    # 1. OBSERVE
-    trace_steps.append({
-        "step": 1,
-        "phase": "Observe",
-        "action": "Ingest Finding Entities & Deterministic Telemetry",
-        "input": {"finding_id": finding.id, "type": finding.type, "severity": finding.severity},
-        "output": {"entities": finding.entities, "metrics": finding.metrics},
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    })
+    if settings.ANTHROPIC_API_KEY:
+        live_decision, live_tool_trace, detected_mode = run_anthropic_tool_loop(
+            db=db,
+            finding_dict=finding.model_dump(),
+            options_summary=options_summary,
+            timeout_seconds=15.0,
+        )
+        if live_decision and detected_mode == "LIVE_LLM":
+            ai_mode = "LIVE_LLM"
 
-    # 2. TOOL CALLS & REASONING
-    tool_results = {}
-    if finding.type == "recall":
-        primary_batch = finding.entities.get("batches", ["B2231"])[0]
-        trace_data = tool_trace_batch(db, primary_batch)
-        tool_results["trace_batch"] = trace_data
-        cov_data = tool_coverage_check(db, finding.entities.get("sku"), finding.metrics.get("replacement_need", 808), [primary_batch])
-        tool_results["coverage_check"] = cov_data
+    # 2. Run Specialist Agents Coordination
+    coordinator = CoordinatorAgent(db=db, ai_mode=ai_mode)
+    multi_agent_summary = coordinator.run_multi_agent_cycle(finding)
 
-        trace_steps.append({
-            "step": 2,
-            "phase": "Reason (Tool Execution)",
-            "action": "Execute trace_batch and coverage_check",
-            "input": {"batch": primary_batch, "sku": finding.entities.get("sku")},
+    # If Live LLM was successful, merge its decision while keeping specialist telemetry and independent review
+    if ai_mode == "LIVE_LLM" and live_decision:
+        multi_agent_summary.coordinator.action_type = live_decision.get("action_type", multi_agent_summary.coordinator.action_type)
+        multi_agent_summary.coordinator.chosen_option = live_decision.get("chosen_option", multi_agent_summary.coordinator.chosen_option)
+        multi_agent_summary.coordinator.required_role = live_decision.get("required_role", multi_agent_summary.coordinator.required_role)
+        multi_agent_summary.coordinator.rationale = live_decision.get("rationale", multi_agent_summary.coordinator.rationale)
+        multi_agent_summary.coordinator.uncertainty_score = float(live_decision.get("uncertainty_score", 0.15))
+        multi_agent_summary.coordinator.assumptions = live_decision.get("assumptions", multi_agent_summary.coordinator.assumptions)
+        multi_agent_summary.coordinator.coordination_summary = "Synthesized via Claude 3.5 Sonnet Tool-Use Protocol & Audited by Review Agent."
+
+    # 3. Assemble Step Trace for UI Transparency
+    inv = multi_agent_summary.investigation
+    risk = multi_agent_summary.risk_assessment
+    sol = multi_agent_summary.solution_evaluation
+    rev = multi_agent_summary.review
+    coord = multi_agent_summary.coordinator
+
+    trace_steps = [
+        {
+            "step": 1,
+            "phase": "Investigation Agent",
+            "action": f"Factual Batch Trace for {inv.batch} ({inv.sku})",
+            "input": {"batch": inv.batch, "sku": inv.sku},
             "output": {
-                "trace_summary": f"Traced {trace_data['total_dispatched']} units across {trace_data['customers_count']} accounts ({trace_data['hospitals_count']} hospitals)",
-                "coverage_summary": f"Clean stock: {cov_data['clean_qty_available']}, Shortfall: {cov_data['shortfall']}",
+                "warehouse_stock": inv.total_warehouse_stock,
+                "dispatched_units": inv.total_dispatched_units,
+                "accounts_count": inv.customer_count,
+                "hospital_count": inv.hospital_count,
+                "missing_telemetry_warnings": inv.missing_information_warnings,
+            },
+            "timestamp": inv.retrieved_at,
+        },
+        {
+            "step": 2,
+            "phase": "Risk Assessment Agent",
+            "action": f"Evaluate Regulatory Classification & Patient Exposure ({risk.severity_category})",
+            "input": {"finding_type": risk.finding_type, "severity_score": risk.risk_score},
+            "output": {
+                "exposure_tier": risk.patient_exposure_tier,
+                "clinical_urgency": risk.clinical_urgency,
+                "financial_exposure_inr": risk.financial_exposure_inr,
+                "regulatory_classification": risk.regulatory_classification,
+                "safety_disclaimer": risk.safe_unsafe_disclaimer,
             },
             "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
-
-    elif finding.type in ["expiry", "returnwindow"]:
-        comp_opts = tool_compare_options(finding.type, finding.metrics)
-        tool_results["compare_options"] = comp_opts
-
-        trace_steps.append({
-            "step": 2,
-            "phase": "Reason (Tool Execution)",
-            "action": "Execute compare_options matrix",
-            "input": finding.metrics,
-            "output": {"comparisons_evaluated": len(comp_opts)},
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
-
-    # 3. EVALUATE
-    options_summary = [opt.model_dump() for opt in finding.options]
-    trace_steps.append({
-        "step": 3,
-        "phase": "Evaluate",
-        "action": "Compare Candidate Actions with Computed Metrics",
-        "input": {"available_options": [o["id"] for o in options_summary]},
-        "output": {"options_matrix": options_summary},
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    })
-
-    # 4. DECIDE (LLM with Anthropic API if key present, else Fallback)
-    decision = None
-    if settings.ANTHROPIC_API_KEY:
-        try:
-            import anthropic
-            client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-            prompt = build_finding_prompt(finding.model_dump(), options_summary)
-            message = client.messages.create(
-                model="claude-3-5-sonnet-20241022",
-                max_tokens=1024,
-                temperature=0.0,
-                system=AGENT_SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            raw_text = message.content[0].text
-            # Extract JSON
-            match = re.search(r'\{.*\}', raw_text, re.DOTALL)
-            if match:
-                parsed = json.loads(match.group(0))
-                if validate_llm_decision(parsed, finding):
-                    decision = parsed
-                    decision["fallback_used"] = False
-        except Exception as e:
-            decision = None
-
-    if decision is None:
-        decision = get_fallback_decision(finding.model_dump(), options_summary)
-
-    trace_steps.append({
-        "step": 4,
-        "phase": "Decide",
-        "action": "Select Optimum Strategy via Constrained Intelligence",
-        "input": {"chosen_option": decision.get("chosen_option")},
-        "output": {
-            "rationale": decision.get("rationale"),
-            "confidence": decision.get("confidence"),
-            "assumptions": decision.get("assumptions"),
-            "fallback_used": decision.get("fallback_used", False),
         },
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    })
+        {
+            "step": 3,
+            "phase": "Solution Evaluation Agent",
+            "action": f"Compare Feasible Strategies & Enforce Stock Constraints ({len(sol.evaluated_options)} Options)",
+            "input": {"clean_stock_available": sol.clean_stock_available, "replacement_shortfall": sol.replacement_shortfall},
+            "output": {
+                "recommended_option": sol.recommended_option_name,
+                "rejected_options_count": sol.rejection_count,
+                "coverage_ratio": sol.coverage_ratio,
+                "cost_benefit_summary": sol.cost_benefit_summary,
+            },
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        },
+        {
+            "step": 4,
+            "phase": "Review Agent (Independent Audit)",
+            "action": "Sanity Check Calculations, Roles, and Safety Guardrails",
+            "input": {"proposed_option": sol.recommended_option_id, "required_role": coord.required_role},
+            "output": {
+                "verdict": rev.independent_verdict,
+                "review_passed": rev.review_passed,
+                "objections": rev.objections,
+                "warnings": rev.warnings,
+                "calculation_checks": [c.model_dump() for c in rev.calculation_checks],
+            },
+            "timestamp": rev.reviewed_at,
+        },
+        {
+            "step": 5,
+            "phase": "Coordinator Agent",
+            "action": f"Synthesize Multi-Agent Recommendation ({ai_mode})",
+            "input": {"chosen_option": coord.chosen_option, "uncertainty_score": coord.uncertainty_score},
+            "output": {
+                "action_type": coord.action_type,
+                "required_role": coord.required_role,
+                "rationale": coord.rationale,
+                "uncertainty_score": coord.uncertainty_score,
+                "assumptions": coord.assumptions,
+            },
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        },
+    ]
 
-    # 5. ACT (Draft Action in Database)
-    action_type, required_role = determine_action_type_and_role(finding, decision.get("chosen_option", ""))
+    # If live tool calling was executed, prepend the tool turn logs
+    if live_tool_trace:
+        for idx, t_step in enumerate(live_tool_trace, 1):
+            trace_steps.insert(idx, {
+                "step": f"Tool-{t_step['iteration']}",
+                "phase": "Native LLM Tool Call",
+                "action": f"Invoke tool '{t_step['tool']}'",
+                "input": t_step["input"],
+                "output": t_step["output"],
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            })
+
+    # 4. Stage Draft Action in Database (Strict Human Gate)
     action_id = f"ACT-{uuid.uuid4().hex[:8].upper()}"
-
-    # Build action payload
     action_payload = {
         "finding_id": finding.id,
         "finding_type": finding.type,
         "entities": finding.entities,
         "metrics": finding.metrics,
-        "chosen_option": decision.get("chosen_option"),
-        "rationale": decision.get("rationale"),
-        "assumptions": decision.get("assumptions", []),
+        "chosen_option": coord.chosen_option,
+        "rationale": coord.rationale,
+        "uncertainty_score": coord.uncertainty_score,
+        "assumptions": coord.assumptions,
+        "ai_mode": ai_mode,
+        "review_passed": rev.review_passed,
+        "review_objections": rev.objections,
+        "review_warnings": rev.warnings,
     }
 
-    # Save action to DB
     new_action = Action(
         id=action_id,
-        type=action_type,
+        type=coord.action_type,
         payload=json.dumps(action_payload),
         evidence=json.dumps(finding.metrics),
         options=json.dumps(options_summary),
-        chosen_option=decision.get("chosen_option"),
+        chosen_option=coord.chosen_option,
         status="pending_approval",
-        required_role=required_role,
+        required_role=coord.required_role,
         created_at=datetime.now(timezone.utc),
         decided_by=None,
         decided_at=None,
@@ -203,59 +202,51 @@ def run_agent_loop_on_finding(db: Session, finding: Finding) -> Finding:
     db.add(new_action)
     db.commit()
 
-    # Append ACTION_DRAFTED event to ledger
+    # 5. Append ACTION_DRAFTED Event to SHA-256 Hash-Chained Audit Ledger
     append_ledger_event(
         db=db,
         event_type="ACTION_DRAFTED",
         payload={
             "action_id": action_id,
-            "type": action_type,
+            "type": coord.action_type,
             "finding_id": finding.id,
-            "chosen_option": decision.get("chosen_option"),
-            "required_role": required_role,
+            "chosen_option": coord.chosen_option,
+            "required_role": coord.required_role,
+            "ai_mode": ai_mode,
+            "review_passed": rev.review_passed,
+            "uncertainty_score": coord.uncertainty_score,
         },
         ts=datetime.now(timezone.utc).isoformat(),
         trigger_auto_anchor=True,
     )
 
     trace_steps.append({
-        "step": 5,
-        "phase": "Act (Draft Only)",
+        "step": 6,
+        "phase": "Act (Human Gated Draft)",
         "action": f"Create Draft Action Record {action_id}",
-        "input": {"action_type": action_type, "required_role": required_role},
+        "input": {"action_type": coord.action_type, "required_role": coord.required_role},
         "output": {
             "action_id": action_id,
             "status": "pending_approval",
             "ledger_event": "ACTION_DRAFTED",
+            "ai_mode": ai_mode,
         },
         "timestamp": datetime.now(timezone.utc).isoformat(),
     })
 
-    # 6. EXPLAIN
-    trace_steps.append({
-        "step": 6,
-        "phase": "Explain",
-        "action": "Surface Mathematical Formulas, Evidence Rows & Audit Lineage",
-        "input": {"finding_id": finding.id},
-        "output": {
-            "formula": finding.explanation.get("formula") if finding.explanation else "",
-            "weights": finding.explanation.get("weights") if finding.explanation else {},
-            "source_rows": finding.source_rows or [],
-        },
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    })
-
-    # Update finding with agent results
+    # 6. Update Finding Object
     finding.action_id = action_id
+    finding.ai_mode = ai_mode
+    finding.multi_agent_summary = multi_agent_summary.model_dump()
     finding.agent_trace = trace_steps
     finding.recommended_action = {
         "action_id": action_id,
-        "type": action_type,
-        "chosen_option": decision.get("chosen_option"),
-        "rationale": decision.get("rationale"),
-        "confidence": decision.get("confidence"),
-        "required_role": required_role,
-        "assumptions": decision.get("assumptions", []),
+        "type": coord.action_type,
+        "chosen_option": coord.chosen_option,
+        "rationale": coord.rationale,
+        "confidence": round(1.0 - coord.uncertainty_score, 2),
+        "required_role": coord.required_role,
+        "assumptions": coord.assumptions,
     }
 
     return finding

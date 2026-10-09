@@ -92,6 +92,8 @@ class Finding(BaseModel):
     agent_trace: Optional[List[Dict[str, Any]]] = None
     action_id: Optional[str] = None
     source_rows: Optional[List[Dict[str, Any]]] = None
+    ai_mode: Optional[str] = "DETERMINISTIC_FALLBACK"
+    multi_agent_summary: Optional[Dict[str, Any]] = None
 
 # Actions & Approvals
 class ActionCreate(BaseModel):

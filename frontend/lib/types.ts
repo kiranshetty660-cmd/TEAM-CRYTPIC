@@ -98,6 +98,90 @@ export interface Finding {
   agent_trace?: AgentTraceStep[];
   action_id?: string;
   source_rows?: any[];
+  ai_mode?: "LIVE_LLM" | "DETERMINISTIC_FALLBACK";
+  multi_agent_summary?: MultiAgentSummary;
+}
+
+export interface MultiAgentSummary {
+  ai_mode: "LIVE_LLM" | "DETERMINISTIC_FALLBACK";
+  investigation: {
+    batch: string;
+    sku: string;
+    product_name: string;
+    storage_condition: string;
+    is_critical_drug: boolean;
+    total_warehouse_stock: number;
+    warehouse_locations: any[];
+    total_dispatched_units: number;
+    customer_count: number;
+    hospital_count: number;
+    chemist_count: number;
+    hospital_accounts: any[];
+    manufacturer?: string;
+    supplier_lead_time_days?: number;
+    supplier_return_window_days?: number;
+    supplier_credit_pct?: number;
+    missing_information_warnings: string[];
+    retrieved_at: string;
+  };
+  risk_assessment: {
+    finding_type: string;
+    risk_score: number;
+    severity_category: string;
+    patient_exposure_tier: string;
+    clinical_urgency: string;
+    regulatory_classification?: string;
+    financial_exposure_inr: number;
+    formula_used: string;
+    sub_scores: Record<string, number>;
+    regulatory_implications: string[];
+    safe_unsafe_disclaimer: string;
+  };
+  solution_evaluation: {
+    finding_type: string;
+    evaluated_options: Array<{
+      id: string;
+      name: string;
+      description: string;
+      feasible: boolean;
+      rejection_reason?: string;
+      metrics: Record<string, any>;
+      projected_financial_impact: string;
+      target_role: string;
+    }>;
+    recommended_option_id: string;
+    recommended_option_name: string;
+    rejection_count: number;
+    clean_stock_available: number;
+    replacement_shortfall: number;
+    coverage_ratio: number;
+    cost_benefit_summary: string;
+  };
+  review: {
+    review_passed: boolean;
+    independent_verdict: string;
+    objections: string[];
+    warnings: string[];
+    calculation_checks: Array<{
+      metric: string;
+      claimed_value: any;
+      verified_value: any;
+      matched: boolean;
+      notes: string;
+    }>;
+    permissions_verified: boolean;
+    safety_rule_compliant: boolean;
+    reviewed_at: string;
+  };
+  coordinator: {
+    action_type: string;
+    chosen_option: string;
+    required_role: string;
+    rationale: string;
+    uncertainty_score: number;
+    assumptions: string[];
+    coordination_summary: string;
+  };
 }
 
 export interface BoardKPI {
