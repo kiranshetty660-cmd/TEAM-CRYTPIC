@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date as dt_date, datetime as dt_datetime
 from typing import List, Optional, Any, Dict
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -20,8 +20,8 @@ class BatchInventorySchema(BaseModel):
     warehouse: str
     cold_room: Optional[str] = None
     qty: int
-    mfg_date: date
-    expiry_date: date
+    mfg_date: dt_date
+    expiry_date: dt_date
     status: str
 
 class CustomerSchema(BaseModel):
@@ -35,7 +35,7 @@ class CustomerSchema(BaseModel):
 class DispatchSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
-    date: date
+    date: dt_date
     customer_id: str
     sku: str
     batch: str
@@ -47,12 +47,12 @@ class TempLogSchema(BaseModel):
     id: int
     warehouse: str
     cold_room: str
-    ts: datetime
+    ts: dt_datetime
     temp_c: float
 
 class RecallCreate(BaseModel):
     id: Optional[str] = None
-    date: Optional[date] = None
+    date: Optional[dt_date] = None
     sku: str
     batches: List[str]
     reason: str
@@ -61,11 +61,12 @@ class RecallCreate(BaseModel):
 class RecallSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
-    date: date
+    date: dt_date
     sku: str
     batches: List[str]
     reason: str
     recall_class: str
+
 
 
 # Findings & Detection

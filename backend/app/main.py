@@ -6,7 +6,18 @@ from app.db import get_db, engine, Base
 from app.models import Ledger
 from app.config import settings
 
-# Create tables if not existing
+from app.routers import (
+    board,
+    batches,
+    findings,
+    actions,
+    recalls,
+    ledger,
+    data,
+    dev,
+)
+
+# Ensure tables exist
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -15,7 +26,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS middleware
+# CORS middleware for frontend communication
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -23,6 +34,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount all feature routers
+app.include_router(board.router)
+app.include_router(batches.router)
+app.include_router(findings.router)
+app.include_router(actions.router)
+app.include_router(recalls.router)
+app.include_router(ledger.router)
+app.include_router(data.router)
+app.include_router(dev.router)
 
 @app.get("/api/health")
 def health_check(db: Session = Depends(get_db)):
