@@ -1,9 +1,10 @@
 from datetime import date, datetime
 from typing import List, Optional, Any, Dict
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 # Base & Entities
 class ProductSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     sku: str
     molecule: str
     brand: str
@@ -11,10 +12,8 @@ class ProductSchema(BaseModel):
     storage: str
     critical_drug: bool
 
-    class Config:
-        from_attributes = True
-
 class BatchInventorySchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     sku: str
     batch: str
@@ -25,20 +24,16 @@ class BatchInventorySchema(BaseModel):
     expiry_date: date
     status: str
 
-    class Config:
-        from_attributes = True
-
 class CustomerSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     customer_id: str
     name: str
     type: str
     location: str
     credit_terms: str
 
-    class Config:
-        from_attributes = True
-
 class DispatchSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     date: date
     customer_id: str
@@ -47,18 +42,13 @@ class DispatchSchema(BaseModel):
     qty: int
     from_warehouse: str
 
-    class Config:
-        from_attributes = True
-
 class TempLogSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     warehouse: str
     cold_room: str
     ts: datetime
     temp_c: float
-
-    class Config:
-        from_attributes = True
 
 class RecallCreate(BaseModel):
     id: Optional[str] = None
@@ -69,6 +59,7 @@ class RecallCreate(BaseModel):
     recall_class: str = "II"
 
 class RecallSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: str
     date: date
     sku: str
@@ -76,8 +67,6 @@ class RecallSchema(BaseModel):
     reason: str
     recall_class: str
 
-    class Config:
-        from_attributes = True
 
 # Findings & Detection
 class FindingOption(BaseModel):
@@ -118,6 +107,7 @@ class ActionDecisionRequest(BaseModel):
     reason: Optional[str] = None
 
 class ActionSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: str
     type: str
     payload: Dict[str, Any]
@@ -131,11 +121,9 @@ class ActionSchema(BaseModel):
     decided_at: Optional[str] = None
     reason: Optional[str] = None
 
-    class Config:
-        from_attributes = True
-
 # Ledger & Verification
 class LedgerEntrySchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     seq: int
     ts: str
     event_type: str
@@ -143,10 +131,8 @@ class LedgerEntrySchema(BaseModel):
     prev_hash: str
     hash: str
 
-    class Config:
-        from_attributes = True
-
 class AnchorSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     from_seq: int
     to_seq: int
@@ -155,8 +141,6 @@ class AnchorSchema(BaseModel):
     chain: str
     status: str
 
-    class Config:
-        from_attributes = True
 
 class LedgerVerifyResponse(BaseModel):
     ok: bool
