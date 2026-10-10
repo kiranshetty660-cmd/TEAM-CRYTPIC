@@ -247,8 +247,7 @@ def test_pre_execution_revalidation_and_ledger_purity():
     act_resp = client.get("/api/actions?status=pending_approval")
     assert act_resp.status_code == 200
     actions = act_resp.json()
-    assert len(actions) > 0
-    target_action = actions[0]
+    target_action = next((a for a in actions if a["type"] in ["QUARANTINE_FOR_QA", "BLOCK_BATCH", "SEND_NOTICES"]), actions[0])
     action_id = target_action["id"]
 
     # Verify action is in pending_approval (NEVER executed prematurely)

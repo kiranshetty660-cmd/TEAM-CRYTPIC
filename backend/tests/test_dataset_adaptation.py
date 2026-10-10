@@ -126,10 +126,10 @@ def test_validation_rejects_invalid_dates_and_negative_quantities():
     assert "cannot be negative" in err_reasons
 
 
-def test_unmapped_warehouse_is_explicitly_unassigned():
+def test_unmapped_warehouse_is_rejected_as_mandatory():
     """
-    Safeguard: Unmapped warehouse must be marked as 'UNASSIGNED'
-    rather than fabricating an arbitrary warehouse.
+    Safeguard: Warehouse is mandatory for batch_inventory according to canonical schema.
+    A file missing warehouse must be rejected without fabricating an arbitrary warehouse.
     """
     csv_data = (
         "sku,batch,qty,mfg_date,expiry_date\n"
@@ -147,8 +147,9 @@ def test_unmapped_warehouse_is_explicitly_unassigned():
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["valid_rows"] == 1
-    assert data["preview"][0]["warehouse"] == "UNASSIGNED"
+    assert data["status"] == "rejected"
+    assert data["is_valid_for_commit"] is False
+    assert "warehouse" in data["missing_mandatory_fields"]
 
 
 def test_capability_report_disables_unsupported_analytics():

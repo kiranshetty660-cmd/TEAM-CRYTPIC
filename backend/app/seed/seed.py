@@ -2,7 +2,8 @@ import argparse
 import random
 from datetime import date, datetime, timedelta, timezone
 from sqlalchemy.orm import Session
-from app.db import engine, SessionLocal, Base
+from sqlalchemy import text
+from app.db import engine, SessionLocal, Base, is_sqlite
 from app.models import (
     Product,
     BatchInventory,
@@ -27,9 +28,19 @@ def run_seed(reset: bool = True):
     random.seed(42)
 
     if reset:
-        print("Resetting database schema...")
-        Base.metadata.drop_all(bind=engine)
-        Base.metadata.create_all(bind=engine)
+        print("Resetting database tables...")
+        if not is_sqlite:
+            Base.metadata.create_all(bind=engine)
+            with engine.connect() as conn:
+                for table in reversed(Base.metadata.sorted_tables):
+                    try:
+                        with conn.begin():
+                            conn.execute(text(f'DELETE FROM "{table.name}";'))
+                    except Exception:
+                        pass
+        else:
+            Base.metadata.drop_all(bind=engine)
+            Base.metadata.create_all(bind=engine)
 
     db: Session = SessionLocal()
     today = get_seed_date()

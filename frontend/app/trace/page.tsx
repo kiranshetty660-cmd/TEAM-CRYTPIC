@@ -11,6 +11,7 @@ import {
   AlertCircle,
   Hospital,
   Store,
+  Users,
 } from "lucide-react";
 import { api } from "../../lib/api";
 import { BatchTraceResponse } from "../../lib/types";
@@ -21,12 +22,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Skeleton, ErrorState } from "../../components/ui/FeedbackStates";
 
 const DEMO_BATCH_CHIPS = [
-  { batch: "B2231", label: "S1 Recall: Amoxiclav B2231", desc: "180 in WH, 640 dispatched (2 Hosp + 23 Chem)" },
-  { batch: "CR-B101", label: "S2 Cold Excursion: Insulin", desc: "WH-2 Cold Room 1 (9.4°C breach)" },
-  { batch: "NE-881", label: "S3 Near-Expiry: Omeprazole", desc: "70d expiry, RMA closes in 6d" },
-  { batch: "FEFO-NEW", label: "S4 FEFO Violation: Azithromycin", desc: "Dispatched ahead of FEFO-OLD" },
-  { batch: "ADR-BATCH1", label: "S5 Critical Shortage: Adrenaline", desc: "4 days cover, 9d lead time" },
-  { batch: "DECOY-999", label: "S6 Clean Decoy: Paracetamol", desc: "20 months expiry, compliant" },
+  { batch: "B2231", label: "Recalled: Amoxiclav B2231", desc: "180 in WH, 640 dispatched (2 Hosp + 23 Chem)" },
+  { batch: "CR-B101", label: "Cold Breach: Actrapid Insulin", desc: "WH-2 Cold Room 1 (9.4°C breach)" },
+  { batch: "NE-881", label: "Near-Expiry: Omeprazole", desc: "70d expiry, return window closes in 6d" },
+  { batch: "FEFO-NEW", label: "Wrong Dispatch: Azithromycin", desc: "Dispatched ahead of older batch" },
+  { batch: "ADR-BATCH1", label: "Low Stock: Adrenaline Injection", desc: "4 days cover, 9d supplier lead time" },
+  { batch: "DECOY-999", label: "Safe Batch: Paracetamol", desc: "20 months expiry, fully compliant" },
 ];
 
 export default function BatchTracePage() {
@@ -43,7 +44,7 @@ export default function BatchTracePage() {
       const res = await api.traceBatch(batchId.trim().toUpperCase());
       setTrace(res);
     } catch (err: any) {
-      setError(err.message || `No records found for batch ${batchId}`);
+      setError(err?.message || `No records found for batch ${batchId}`);
       setTrace(null);
     } finally {
       setLoading(false);
@@ -62,17 +63,24 @@ export default function BatchTracePage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-          End-to-End Batch Traceability
-        </h1>
-        <p className="text-xs text-slate-500 mt-1">
-          Trace forward to dispensing accounts (hospitals first) and backward to active pharmaceutical manufacturers.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 border border-sky-200 flex items-center justify-center shrink-0 shadow-xs">
+            <Search className="w-5 h-5 text-sky-600" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+              Batch Traceability
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500">
+              Trace medicine batches forward to hospitals and pharmacies, and backward to certified manufacturers.
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Search Input & Demo Quick Chips */}
-      <Card className="p-4 bg-white border-slate-200 shadow-sm space-y-3.5">
+      {/* Search Input & Scenario Presets */}
+      <Card className="p-4 bg-white border border-slate-200 shadow-xs space-y-3.5">
         <form onSubmit={handleSearchSubmit} className="flex gap-2">
           <div className="relative flex-1">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -80,40 +88,73 @@ export default function BatchTracePage() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search batch number (e.g. B2231, CR-B101, NE-881)..."
-              className="w-full pl-9 pr-4 py-2 rounded-lg bg-slate-50 border border-slate-300 text-slate-900 placeholder:text-slate-400 text-xs focus:outline-none focus:ring-2 focus:ring-slate-900 min-h-[44px]"
+              placeholder="Enter batch number (e.g. B2231, CR-B101, NE-881)..."
+              className="w-full pl-9 pr-4 py-2 rounded-lg bg-slate-50 border border-slate-300 text-slate-900 placeholder:text-slate-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 min-h-[40px]"
             />
           </div>
-          <Button type="submit" variant="primary" isLoading={loading}>
+          <Button type="submit" variant="sky" isLoading={loading}>
             Trace Batch
           </Button>
         </form>
 
-        {/* Demo Scenario Chips */}
+        {/* Demo Quick Chips */}
         <div>
           <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
-            One-Click Scenario Presets:
+            One-Click Test Presets:
           </span>
           <div className="flex flex-wrap gap-2">
-            {DEMO_BATCH_CHIPS.map((chip) => (
-              <button
-                key={chip.batch}
-                onClick={() => {
-                  setSearchTerm(chip.batch);
-                  fetchTrace(chip.batch);
-                }}
-                className={`text-xs px-3 py-1.5 rounded-lg border transition text-left min-h-[38px] ${
-                  searchTerm === chip.batch
-                    ? "bg-slate-900 border-slate-900 text-white font-semibold"
-                    : "bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700"
-                }`}
-              >
-                <span className="font-bold mr-1">{chip.batch}</span>
-                <span className={searchTerm === chip.batch ? "text-slate-300" : "text-slate-500"}>
-                  ({chip.label.split(":")[0]})
-                </span>
-              </button>
-            ))}
+            {DEMO_BATCH_CHIPS.map((chip) => {
+              const isSelected = searchTerm === chip.batch;
+              const colorConfig: Record<string, { active: string; inactive: string }> = {
+                B2231: {
+                  active: "bg-rose-600 border-rose-600 text-white shadow-xs font-semibold",
+                  inactive: "bg-rose-50/70 border-rose-200 text-rose-800 hover:bg-rose-100",
+                },
+                "CR-B101": {
+                  active: "bg-sky-600 border-sky-600 text-white shadow-xs font-semibold",
+                  inactive: "bg-sky-50/70 border-sky-200 text-sky-800 hover:bg-sky-100",
+                },
+                "NE-881": {
+                  active: "bg-purple-600 border-purple-600 text-white shadow-xs font-semibold",
+                  inactive: "bg-purple-50/70 border-purple-200 text-purple-800 hover:bg-purple-100",
+                },
+                "FEFO-NEW": {
+                  active: "bg-amber-600 border-amber-600 text-white shadow-xs font-semibold",
+                  inactive: "bg-amber-50/70 border-amber-200 text-amber-800 hover:bg-amber-100",
+                },
+                "ADR-BATCH1": {
+                  active: "bg-orange-600 border-orange-600 text-white shadow-xs font-semibold",
+                  inactive: "bg-orange-50/70 border-orange-200 text-orange-800 hover:bg-orange-100",
+                },
+                "DECOY-999": {
+                  active: "bg-emerald-600 border-emerald-600 text-white shadow-xs font-semibold",
+                  inactive: "bg-emerald-50/70 border-emerald-200 text-emerald-800 hover:bg-emerald-100",
+                },
+              };
+
+              const styling = colorConfig[chip.batch] || {
+                active: "bg-blue-600 border-blue-600 text-white shadow-xs font-semibold",
+                inactive: "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100",
+              };
+
+              return (
+                <button
+                  key={chip.batch}
+                  onClick={() => {
+                    setSearchTerm(chip.batch);
+                    fetchTrace(chip.batch);
+                  }}
+                  className={`text-xs px-3 py-1.5 rounded-lg border transition text-left min-h-[36px] ${
+                    isSelected ? styling.active : styling.inactive
+                  }`}
+                >
+                  <span className="font-bold mr-1">{chip.batch}</span>
+                  <span className={isSelected ? "text-white/80" : "opacity-80"}>
+                    ({chip.label.split(":")[0]})
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </Card>
@@ -130,35 +171,35 @@ export default function BatchTracePage() {
         <div className="space-y-6">
           {/* Summary Overview */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-            <Card className="p-4 bg-white border-slate-200">
-              <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Product & Molecule</span>
+            <Card className="p-4 bg-white border border-slate-200 border-t-4 border-t-blue-500 shadow-xs">
+              <span className="text-[11px] text-blue-700 font-bold uppercase tracking-wider">Medicine Name</span>
               <div className="text-base font-bold text-slate-900 mt-1">{trace.product_name}</div>
-              <div className="text-xs text-blue-700 font-mono mt-0.5">{trace.sku}</div>
+              <div className="text-xs text-blue-600 font-mono font-medium mt-0.5">{trace.sku}</div>
             </Card>
 
-            <Card className="p-4 bg-white border-slate-200">
-              <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Warehouse Stock</span>
+            <Card className="p-4 bg-white border border-slate-200 border-t-4 border-t-emerald-500 shadow-xs">
+              <span className="text-[11px] text-emerald-700 font-bold uppercase tracking-wider">Remaining Stock</span>
               <div className="text-2xl font-bold text-slate-900 mt-1">{trace.total_stock_in_wh} units</div>
-              <div className="text-xs text-slate-500 mt-0.5">Across current warehouse nodes</div>
+              <div className="text-xs text-slate-500 mt-0.5">Inside warehouse bins</div>
             </Card>
 
-            <Card className="p-4 bg-white border-slate-200">
-              <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Dispatched (30d)</span>
+            <Card className="p-4 bg-white border border-slate-200 border-t-4 border-t-sky-500 shadow-xs">
+              <span className="text-[11px] text-sky-700 font-bold uppercase tracking-wider">Total Dispatched</span>
               <div className="text-2xl font-bold text-slate-900 mt-1">{trace.total_dispatched} units</div>
               <div className="text-xs text-slate-500 mt-0.5">
-                {trace.customers_count} accounts ({trace.hospitals_count} Hospitals, {trace.chemists_count} Chemists)
+                Sent to {trace.customers_count} accounts ({trace.hospitals_count} Hospitals, {trace.chemists_count} Pharmacies)
               </div>
             </Card>
 
-            <Card className="p-4 bg-white border-slate-200">
-              <span className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Storage & Critical</span>
+            <Card className="p-4 bg-white border border-slate-200 border-t-4 border-t-purple-500 shadow-xs">
+              <span className="text-[11px] text-purple-700 font-bold uppercase tracking-wider">Storage Requirements</span>
               <div className="flex items-center gap-2 mt-2">
                 <Badge variant={trace.storage === "2-8C" ? "info" : "neutral"} size="sm">
-                  {trace.storage}
+                  {trace.storage === "2-8C" ? "Cold Chain (2°C – 8°C)" : "Room Temperature"}
                 </Badge>
                 {trace.critical_drug && (
                   <Badge variant="danger" size="sm">
-                    CRITICAL DRUG
+                    CRITICAL MEDICINE
                   </Badge>
                 )}
               </div>
@@ -168,35 +209,35 @@ export default function BatchTracePage() {
           {/* Current Warehouse Inventory */}
           <div className="space-y-3">
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-              <Boxes className="w-4 h-4 text-slate-600" />
-              Current Warehouse Inventory Locations
+              <Boxes className="w-4 h-4 text-sky-600" />
+              Current Warehouse Stock Locations
             </h2>
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Warehouse Node</TableHead>
-                  <TableHead>Cold Room / Zone</TableHead>
-                  <TableHead>Available Qty</TableHead>
-                  <TableHead>Mfg Date</TableHead>
+                <tr>
+                  <TableHead>Warehouse</TableHead>
+                  <TableHead>Zone / Cold Room</TableHead>
+                  <TableHead>Available Units</TableHead>
+                  <TableHead>Manufacture Date</TableHead>
                   <TableHead>Expiry Date</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
+                  <TableHead>Current Status</TableHead>
+                </tr>
               </TableHeader>
               <TableBody>
                 {trace.current_locations.length === 0 ? (
                   <TableRow>
                     <TableCell className="text-slate-400 italic" colSpan={6}>
-                      No current stock in warehouse (fully dispatched or zero stock)
+                      No stock currently in warehouse (all units dispatched or returned).
                     </TableCell>
                   </TableRow>
                 ) : (
                   trace.current_locations.map((loc, i) => (
                     <TableRow key={i}>
                       <TableCell className="font-bold text-slate-900">{loc.warehouse}</TableCell>
-                      <TableCell>{loc.cold_room || "Ambient Bin"}</TableCell>
+                      <TableCell>{loc.cold_room || "Ambient Shelves"}</TableCell>
                       <TableCell className="font-mono font-bold text-slate-900">{loc.qty}</TableCell>
-                      <TableCell className="text-xs">{loc.mfg_date}</TableCell>
-                      <TableCell className="text-xs">{loc.expiry_date}</TableCell>
+                      <TableCell className="text-xs text-slate-600">{loc.mfg_date}</TableCell>
+                      <TableCell className="text-xs text-slate-600">{loc.expiry_date}</TableCell>
                       <TableCell>
                         <Badge
                           variant={
@@ -220,42 +261,42 @@ export default function BatchTracePage() {
 
           {/* Forward Customer Distribution (Hospitals First) */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
               <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-                <Truck className="w-4 h-4 text-slate-600" />
-                Forward Distribution Ledger ({trace.customers_count} Dispensing Accounts)
+                <Truck className="w-4 h-4 text-blue-600" />
+                Customers Who Received This Batch ({trace.customers_count} Accounts)
               </h2>
-              <span className="text-xs text-slate-500 font-medium">Hospitals automatically prioritized at top</span>
+              <span className="text-xs text-blue-700 font-medium">Hospitals prioritized at the top of the list</span>
             </div>
 
             <Table>
               <TableHeader>
-                <TableRow>
+                <tr>
                   <TableHead>Account Name</TableHead>
-                  <TableHead>Type</TableHead>
+                  <TableHead>Account Type</TableHead>
                   <TableHead>Location</TableHead>
                   <TableHead>Units Received</TableHead>
-                  <TableHead>Orders Count</TableHead>
-                  <TableHead>Last Dispatch</TableHead>
-                </TableRow>
+                  <TableHead>Dispatches</TableHead>
+                  <TableHead>Last Dispatch Date</TableHead>
+                </tr>
               </TableHeader>
               <TableBody>
                 {trace.forward_customers.map((c) => (
                   <TableRow
                     key={c.customer_id}
-                    className={c.type === "hospital" ? "bg-blue-50/40 font-medium" : ""}
+                    className={c.type === "hospital" ? "bg-blue-50/30 font-medium" : ""}
                   >
                     <TableCell className="text-slate-900 flex items-center gap-2">
                       {c.type === "hospital" ? (
-                        <Hospital className="w-4 h-4 text-blue-700 shrink-0" />
+                        <Hospital className="w-4 h-4 text-blue-600 shrink-0" />
                       ) : (
                         <Store className="w-4 h-4 text-slate-400 shrink-0" />
                       )}
                       <span>{c.name}</span>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={c.type === "hospital" ? "info" : "neutral"} size="sm">
-                        {c.type.toUpperCase()}
+                      <Badge variant={c.type === "hospital" ? "indigo" : "neutral"} size="sm">
+                        {c.type === "hospital" ? "HOSPITAL (HIGH PRIORITY)" : "PHARMACY"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-xs text-slate-600">{c.location}</TableCell>
@@ -272,10 +313,10 @@ export default function BatchTracePage() {
           {trace.backward_manufacturer && (
             <div className="space-y-3">
               <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-                <Factory className="w-4 h-4 text-slate-600" />
-                Backward Manufacturer & Supply Contract
+                <Factory className="w-4 h-4 text-indigo-600" />
+                Manufacturer & Supply Agreement
               </h2>
-              <Card className="p-4 bg-white border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+              <Card className="p-4 bg-white border border-slate-200 shadow-xs grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
                 <div>
                   <span className="text-slate-500 block">Manufacturer:</span>
                   <span className="font-semibold text-slate-900 text-sm mt-0.5 block">
@@ -283,21 +324,21 @@ export default function BatchTracePage() {
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Lead Time:</span>
+                  <span className="text-slate-500 block">Supplier Lead Time:</span>
                   <span className="font-semibold text-slate-900 text-sm mt-0.5 block">
                     {trace.backward_manufacturer.lead_time_days} Days
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Return Window:</span>
+                  <span className="text-slate-500 block">Return Agreement:</span>
                   <span className="font-semibold text-slate-900 text-sm mt-0.5 block">
                     {trace.backward_manufacturer.return_window_days} Days ({Math.round(trace.backward_manufacturer.credit_pct * 100)}% Credit)
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Inbound Orders:</span>
+                  <span className="text-slate-500 block">Active Purchase Orders:</span>
                   <span className="font-semibold text-slate-900 text-sm mt-0.5 block">
-                    {trace.backward_manufacturer.purchase_orders.length} Active POs
+                    {trace.backward_manufacturer.purchase_orders.length} Open POs
                   </span>
                 </div>
               </Card>

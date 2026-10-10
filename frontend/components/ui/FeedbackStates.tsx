@@ -25,22 +25,25 @@ export function CardSkeleton() {
 
 export function EmptyState({
   title = "No records found",
-  description = "No items match your current filter criteria.",
+  description,
+  message,
   icon,
   action,
 }: {
   title?: string;
   description?: string;
+  message?: string;
   icon?: React.ReactNode;
   action?: React.ReactNode;
 }) {
+  const displayDesc = description || message || "No items match your current filter criteria.";
   return (
     <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-slate-300 rounded-2xl bg-white shadow-sm">
       <div className="p-3 bg-slate-100 rounded-full text-slate-500 mb-3">
         {icon || <Inbox className="w-8 h-8" />}
       </div>
       <h4 className="text-base font-bold text-slate-800">{title}</h4>
-      <p className="text-xs text-slate-500 mt-1 max-w-sm">{description}</p>
+      <p className="text-xs text-slate-500 mt-1 max-w-sm">{displayDesc}</p>
       {action && <div className="mt-4">{action}</div>}
     </div>
   );

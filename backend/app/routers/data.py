@@ -6,17 +6,28 @@ import hashlib
 from datetime import datetime, timezone, date, timedelta
 from typing import Optional, Dict, Any, List
 from fastapi import APIRouter, Depends, UploadFile, File, Form, Query, HTTPException
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from app.db import get_db
-from app.models import BatchInventory, Product, Customer, Dispatch, Supplier, TempLog, DatasetImport
+from app.models import BatchInventory, Product, Customer, Dispatch, Supplier, TempLog, DatasetImport, PurchaseOrder, Recall
 from app.ledger.chain import append_ledger_event
 from app.routers.board import execute_full_scan
+from app.engine.canonical_schemas import (
+    MANDATORY_SCHEMAS,
+    OPTIONAL_SCHEMAS,
+    CANONICAL_ALIASES,
+    ENTITY_TITLES,
+    canonicalize_table_name,
+    generate_csv_template,
+    validate_headers_strictly,
+)
 from app.engine.adaptation import (
     parse_uploaded_file,
     profile_dataset,
     validate_dataset,
     match_columns_to_canonical,
     parse_flexible_int,
+    parse_flexible_float,
     parse_flexible_date,
     CANONICAL_SCHEMAS,
 )
@@ -25,6 +36,54 @@ router = APIRouter(prefix="/api/data", tags=["Data Adaptation & Ingestion"])
 
 # In-memory staged rows storage for validation -> commit lifecycle
 _STAGED_ROWS_CACHE: Dict[str, Dict[str, Any]] = {}
+
+@router.get("/schemas")
+def get_authoritative_schemas():
+    """
+    Returns the centralized, authoritative schema definitions for all 8 entities.
+    Single source of truth for both frontend and backend validation.
+    """
+    schemas_data = {}
+    for tbl, mandatory in MANDATORY_SCHEMAS.items():
+        if tbl == "temp_logs":
+            continue
+        schemas_data[tbl] = {
+            "entity": tbl,
+            "title": ENTITY_TITLES.get(tbl, tbl.title()),
+            "mandatory_fields": mandatory,
+            "optional_fields": OPTIONAL_SCHEMAS.get(tbl, []),
+            "aliases": CANONICAL_ALIASES.get(tbl, {}),
+            "allowed_enums": {
+                "storage": ["ambient", "2-8C"] if tbl == "products" else None,
+                "type": ["chemist", "hospital"] if tbl == "customers" else None,
+            },
+        }
+    return {
+        "status": "success",
+        "schemas": schemas_data,
+        "supported_tables": list(schemas_data.keys()),
+    }
+
+
+@router.get("/templates/{table}")
+def get_entity_csv_template(table: str):
+    """
+    Returns a downloadable CSV template containing all mandatory headers and example rows.
+    """
+    tbl = canonicalize_table_name(table)
+    if tbl not in MANDATORY_SCHEMAS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported entity '{table}'. Supported: {list(MANDATORY_SCHEMAS.keys())}",
+        )
+    csv_content = generate_csv_template(tbl)
+    filename = f"{tbl}_template.csv"
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
 
 @router.post("/profile")
 async def profile_file_data(
@@ -35,9 +94,9 @@ async def profile_file_data(
     """
     Profiles an uploaded CSV or XLSX file.
     Detects column names, null counts, inferred data types, duplicate rows,
-    suggests canonical schema mappings with confidence ratings, and flags ambiguous columns.
+    suggests canonical schema mappings, and strictly verifies all mandatory fields exist.
     """
-    tbl = target_table or table or "batch_inventory"
+    tbl = canonicalize_table_name(target_table or table or "batch_inventory")
     if tbl not in CANONICAL_SCHEMAS:
         raise HTTPException(
             status_code=400,
@@ -52,6 +111,8 @@ async def profile_file_data(
             target_table=tbl,
         )
         return profile_res
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as ex:
         raise HTTPException(status_code=400, detail=f"File profiling failed: {str(ex)}")
 
@@ -98,7 +159,10 @@ async def validate_file_data(
 
         import_id = f"IMP-{uuid.uuid4().hex[:8].upper()}"
 
+        valid_rows_data = [r for idx, r in enumerate(rows, start=1) if idx not in {e["row_number"] for e in val_res["errors"]}]
+
         # Stage in DatasetImport table
+        import_status_val = "staged" if val_res["is_valid_for_commit"] else "rejected"
         new_import = DatasetImport(
             id=import_id,
             filename=file.filename or "uploaded_file",
@@ -108,10 +172,11 @@ async def validate_file_data(
             total_rows=val_res["total_rows"],
             valid_rows=val_res["valid_rows_count"],
             invalid_rows=val_res["invalid_rows_count"],
-            status="staged",
+            status=import_status_val,
             mapping_config=json.dumps(mapping),
             capability_report=json.dumps(val_res["capability_report"]),
             errors_summary=json.dumps(val_res["errors"][:50]),
+            previous_state=json.dumps(valid_rows_data, default=str),
             imported_by="Staged User",
             created_at=datetime.now(timezone.utc),
         )
@@ -122,7 +187,7 @@ async def validate_file_data(
         _STAGED_ROWS_CACHE[import_id] = {
             "target_table": tbl,
             "rows": val_res.get("preview_rows", []),
-            "all_sanitized_rows": [r for idx, r in enumerate(rows, start=1) if idx not in {e["row_number"] for e in val_res["errors"]}],
+            "all_sanitized_rows": valid_rows_data,
             "mapping": mapping,
             "val_res": val_res,
         }
@@ -232,7 +297,25 @@ async def commit_dataset(
     if import_record.status == "rolled_back":
         raise HTTPException(status_code=400, detail="This dataset was previously rolled back and cannot be recommitted.")
 
+    if import_record.status == "rejected" or import_record.invalid_rows > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot commit dataset: Import is blocked due to validation errors ({import_record.invalid_rows} errors). All errors must be corrected before committing."
+        )
+
     staged_data = _STAGED_ROWS_CACHE.get(import_id)
+    if not staged_data and import_record and import_record.previous_state:
+        try:
+            rec_rows = json.loads(import_record.previous_state)
+            rec_map = json.loads(import_record.mapping_config or "{}")
+            staged_data = {
+                "target_table": import_record.target_table,
+                "all_sanitized_rows": rec_rows,
+                "mapping": rec_map,
+            }
+        except Exception:
+            pass
+
     if not staged_data:
         raise HTTPException(status_code=400, detail="Staged row cache expired or unavailable. Please re-validate the file.")
 
@@ -247,6 +330,7 @@ async def commit_dataset(
         # Atomic Transaction
         with db.begin_nested():
             if target_table_name == "batch_inventory":
+                existing_sku_ids = {p.sku for p in db.query(Product.sku).all()}
                 for raw_r in sanitized_rows:
                     batch_num = raw_r.get(mapping.get("batch"))
                     sku = raw_r.get(mapping.get("sku"))
@@ -255,11 +339,26 @@ async def commit_dataset(
 
                     batch_str = str(batch_num).strip()
                     sku_str = str(sku).strip().upper()
+
+                    # Ensure parent product exists for foreign key
+                    if sku_str not in existing_sku_ids:
+                        new_prod = Product(
+                            sku=sku_str,
+                            brand=f"Brand {sku_str}",
+                            molecule=sku_str,
+                            category="General",
+                            storage="ambient",
+                            critical_drug=False,
+                        )
+                        db.add(new_prod)
+                        db.flush()
+                        existing_sku_ids.add(sku_str)
                     
                     qty_val = parse_flexible_int(raw_r.get(mapping.get("qty"))) or 0
                     exp_val = parse_flexible_date(raw_r.get(mapping.get("expiry_date")))
                     mfg_val = parse_flexible_date(raw_r.get(mapping.get("mfg_date")))
-                    wh_val = raw_r.get(mapping.get("warehouse")) or "UNASSIGNED"
+                    raw_wh = raw_r.get(mapping.get("warehouse"))
+                    wh_val = str(raw_wh).strip() if (raw_wh is not None and str(raw_wh).strip() not in ("None", "")) else "WH-1"
                     cold_val = raw_r.get(mapping.get("cold_room"))
                     valid_statuses = {"active", "blocked", "quarantine", "returned"}
                     raw_status = str(raw_r.get(mapping.get("status", "")) or "").strip().lower()
@@ -345,15 +444,59 @@ async def commit_dataset(
                     affected_ids.append(sku)
 
             elif target_table_name == "dispatches":
+                existing_cust_ids = {c.customer_id for c in db.query(Customer.customer_id).all()}
+                existing_sku_ids = {p.sku for p in db.query(Product.sku).all()}
+
                 for raw_r in sanitized_rows:
                     d_date = parse_flexible_date(raw_r.get(mapping.get("date")))
-                    cust = str(raw_r.get(mapping.get("customer_id", ""))).strip()
-                    sku = str(raw_r.get(mapping.get("sku", ""))).strip().upper()
-                    batch = str(raw_r.get(mapping.get("batch", ""))).strip()
+                    cust = str(raw_r.get(mapping.get("customer_id", "")) or "").strip()
+                    sku = str(raw_r.get(mapping.get("sku", "")) or "").strip().upper()
+                    batch = str(raw_r.get(mapping.get("batch", "")) or "").strip()
                     qty = parse_flexible_int(raw_r.get(mapping.get("qty"))) or 1
-                    wh = str(raw_r.get(mapping.get("from_warehouse", "WH-1"))).strip()
+                    
+                    wh_col = mapping.get("from_warehouse")
+                    wh_raw = raw_r.get(wh_col) if wh_col else None
+                    wh = str(wh_raw).strip() if (wh_raw is not None and str(wh_raw).strip() not in ("None", "")) else "WH-1"
 
                     if d_date and cust and sku and batch:
+                        # Auto-create missing foreign key parent customer if not present
+                        if cust not in existing_cust_ids:
+                            new_cust = Customer(
+                                customer_id=cust,
+                                name=f"Customer {cust}",
+                                type="hospital" if "HOSP" in cust.upper() else "chemist",
+                                location="Regional Territory",
+                                credit_terms="Net 30",
+                            )
+                            db.add(new_cust)
+                            db.flush()
+                            existing_cust_ids.add(cust)
+
+                        # Auto-create missing foreign key parent product if not present
+                        if sku not in existing_sku_ids:
+                            new_prod = Product(
+                                sku=sku,
+                                brand=f"Brand {sku}",
+                                molecule=sku,
+                                category="General",
+                                storage="ambient",
+                                critical_drug=False,
+                            )
+                            db.add(new_prod)
+                            db.flush()
+                            existing_sku_ids.add(sku)
+
+                        # Enforce regulatory dispatch block for recalled/quarantined batches
+                        blocked_batch = db.query(BatchInventory).filter(
+                            BatchInventory.batch == batch,
+                            BatchInventory.status.in_(["blocked", "quarantine", "recalled"])
+                        ).first()
+                        if blocked_batch:
+                            raise HTTPException(
+                                status_code=400,
+                                detail=f"Dispatch blocked: Batch '{batch}' has been quarantined/recalled (status: {blocked_batch.status}). Regulatory compliance prevents further dispatch."
+                            )
+
                         new_disp = Dispatch(
                             date=d_date,
                             customer_id=cust,
@@ -364,6 +507,146 @@ async def commit_dataset(
                         )
                         db.add(new_disp)
                         affected_ids.append(f"{cust}:{batch}")
+
+
+            elif target_table_name == "customers":
+                for raw_r in sanitized_rows:
+                    c_id = str(raw_r.get(mapping.get("customer_id", "")) or "").strip()
+                    if not c_id:
+                        continue
+                    c_name = str(raw_r.get(mapping.get("name", "")) or f"Customer {c_id}").strip()
+                    c_type = str(raw_r.get(mapping.get("type", "")) or "chemist").strip().lower()
+                    c_loc = str(raw_r.get(mapping.get("location", "")) or "Regional Territory").strip()
+                    c_terms = str(raw_r.get(mapping.get("credit_terms", "")) or "Net 30").strip()
+
+                    existing = db.query(Customer).filter(Customer.customer_id == c_id).first()
+                    if existing:
+                        previous_states.append({
+                            "customer_id": existing.customer_id,
+                            "name": existing.name,
+                            "type": existing.type,
+                            "location": existing.location,
+                            "credit_terms": existing.credit_terms,
+                        })
+                        existing.name = c_name
+                        existing.type = c_type
+                        existing.location = c_loc
+                        existing.credit_terms = c_terms
+                    else:
+                        new_c = Customer(
+                            customer_id=c_id,
+                            name=c_name,
+                            type=c_type,
+                            location=c_loc,
+                            credit_terms=c_terms,
+                        )
+                        db.add(new_c)
+                    affected_ids.append(c_id)
+
+            elif target_table_name == "suppliers":
+                existing_sku_ids = {p.sku for p in db.query(Product.sku).all()}
+                for raw_r in sanitized_rows:
+                    mfg = str(raw_r.get(mapping.get("manufacturer", "")) or "").strip()
+                    sku = str(raw_r.get(mapping.get("sku", "")) or "").strip().upper()
+                    if not mfg or not sku:
+                        continue
+                    if sku not in existing_sku_ids:
+                        db.add(Product(sku=sku, brand=f"Brand {sku}", molecule=sku, category="General", storage="ambient", critical_drug=False))
+                        existing_sku_ids.add(sku)
+                    cost = parse_flexible_float(raw_r.get(mapping.get("unit_cost"))) or 100.0
+                    lead = parse_flexible_int(raw_r.get(mapping.get("lead_time_days"))) or 7
+                    moq = parse_flexible_int(raw_r.get(mapping.get("moq"))) or 100
+                    ret_w = parse_flexible_int(raw_r.get(mapping.get("return_window_days"))) or 60
+                    cred = parse_flexible_float(raw_r.get(mapping.get("credit_pct"))) or 0.60
+
+                    existing = db.query(Supplier).filter(Supplier.manufacturer == mfg, Supplier.sku == sku).first()
+                    if existing:
+                        previous_states.append({
+                            "id": existing.id,
+                            "manufacturer": existing.manufacturer,
+                            "sku": existing.sku,
+                            "unit_cost": existing.unit_cost,
+                        })
+                        existing.unit_cost = cost
+                        existing.lead_time_days = lead
+                        existing.moq = moq
+                        existing.return_window_days = ret_w
+                        existing.credit_pct = cred
+                    else:
+                        db.add(Supplier(manufacturer=mfg, sku=sku, unit_cost=cost, lead_time_days=lead, moq=moq, return_window_days=ret_w, credit_pct=cred))
+                    affected_ids.append(f"{mfg}:{sku}")
+
+            elif target_table_name == "temp_logs":
+                for raw_r in sanitized_rows:
+                    wh = str(raw_r.get(mapping.get("warehouse", "")) or "WH-1").strip()
+                    cr = str(raw_r.get(mapping.get("cold_room", "")) or "CR-1").strip()
+                    temp_val = parse_flexible_float(raw_r.get(mapping.get("temp_c")))
+                    if temp_val is None:
+                        continue
+                    raw_ts = raw_r.get(mapping.get("ts"))
+                    ts_val = None
+                    if raw_ts:
+                        try:
+                            ts_val = datetime.fromisoformat(str(raw_ts).replace("Z", "+00:00"))
+                        except Exception:
+                            pass
+                    if not ts_val:
+                        ts_val = datetime.now(timezone.utc)
+
+                    db.add(TempLog(warehouse=wh, cold_room=cr, ts=ts_val, temp_c=temp_val))
+                    affected_ids.append(f"{wh}:{cr}:{ts_val.isoformat()}")
+
+            elif target_table_name == "purchase_orders":
+                existing_sku_ids = {p.sku for p in db.query(Product.sku).all()}
+                for raw_r in sanitized_rows:
+                    po_num = str(raw_r.get(mapping.get("po", "")) or "").strip()
+                    mfg = str(raw_r.get(mapping.get("manufacturer", "")) or "MANU-GENERIC").strip()
+                    sku = str(raw_r.get(mapping.get("sku", "")) or "").strip().upper()
+                    qty = parse_flexible_int(raw_r.get(mapping.get("qty"))) or 100
+                    exp_d = parse_flexible_date(raw_r.get(mapping.get("expected_date"))) or (date.today() + timedelta(days=7))
+                    status = str(raw_r.get(mapping.get("status", "")) or "ordered").strip().lower()
+                    if not po_num or not sku:
+                        continue
+                    if sku not in existing_sku_ids:
+                        db.add(Product(sku=sku, brand=f"Brand {sku}", molecule=sku, category="General", storage="ambient", critical_drug=False))
+                        existing_sku_ids.add(sku)
+
+                    existing = db.query(PurchaseOrder).filter(PurchaseOrder.po == po_num).first()
+                    if existing:
+                        existing.manufacturer = mfg
+                        existing.sku = sku
+                        existing.qty = qty
+                        existing.expected_date = exp_d
+                        existing.status = status
+                    else:
+                        db.add(PurchaseOrder(po=po_num, manufacturer=mfg, sku=sku, qty=qty, expected_date=exp_d, status=status))
+                    affected_ids.append(po_num)
+
+            elif target_table_name == "recalls":
+                existing_sku_ids = {p.sku for p in db.query(Product.sku).all()}
+                for raw_r in sanitized_rows:
+                    sku = str(raw_r.get(mapping.get("sku", "")) or "").strip().upper()
+                    raw_batches = raw_r.get(mapping.get("batches")) or ""
+                    if isinstance(raw_batches, list):
+                        b_json = json.dumps(raw_batches)
+                    elif str(raw_batches).startswith("["):
+                        b_json = str(raw_batches)
+                    else:
+                        b_list = [b.strip() for b in str(raw_batches).split(",") if b.strip()]
+                        b_json = json.dumps(b_list)
+
+                    reason = str(raw_r.get(mapping.get("reason", "")) or "Regulatory recall notice").strip()
+                    r_class = str(raw_r.get(mapping.get("recall_class", "")) or "Class II").strip()
+                    r_date = parse_flexible_date(raw_r.get(mapping.get("date"))) or date.today()
+                    rec_id = f"REC-{sku}-{uuid.uuid4().hex[:6].upper()}"
+                    if not sku:
+                        continue
+                    if sku not in existing_sku_ids:
+                        db.add(Product(sku=sku, brand=f"Brand {sku}", molecule=sku, category="General", storage="ambient", critical_drug=False))
+                        existing_sku_ids.add(sku)
+
+                    db.add(Recall(id=rec_id, date=r_date, sku=sku, batches=b_json, reason=reason, recall_class=r_class))
+                    affected_ids.append(rec_id)
 
             # Update import audit record
             import_record.status = "committed"
@@ -488,58 +771,66 @@ def rollback_import(
 
 
 # ---------------------------------------------------------------------------
-# Legacy Endpoint Compatibility (Guaranteed Zero Regression for Existing Tests)
+# Direct /upload Ingestion Endpoint with Authoritative Schema Validation
 # ---------------------------------------------------------------------------
 
 @router.post("/upload")
 async def upload_csv_data(
-    table: str = Form(..., description="Target table: batch_inventory, products, dispatches, suppliers"),
+    table: str = Form(..., description="Target table name"),
     mode: str = Form("upsert", description="Mode: upsert, replace, append"),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
     """
-    Legacy CSV ingestion endpoint maintained for zero regression.
+    Direct CSV ingestion endpoint enforcing mandatory fields, valid types, and atomic transactions.
     """
-    valid_tables = ["batch_inventory", "products", "dispatches", "suppliers"]
-    if table not in valid_tables:
-        raise HTTPException(status_code=400, detail=f"Invalid table '{table}'. Must be one of: {valid_tables}")
+    tbl = canonicalize_table_name(table)
+    if tbl not in MANDATORY_SCHEMAS:
+        raise HTTPException(status_code=400, detail=f"Invalid table '{table}'. Must be one of: {list(MANDATORY_SCHEMAS.keys())}")
 
     try:
         content = await file.read()
-        text = content.decode("utf-8")
-        reader = csv.DictReader(io.StringIO(text))
-        rows = list(reader)
+        headers, rows = parse_uploaded_file(content, file.filename or "file.csv")
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
 
-        if not rows:
-            raise HTTPException(status_code=400, detail="CSV file is empty")
+    # Validate headers strictly against mandatory schema
+    is_valid_headers, missing_mandatory, mapping, rejection_msg = validate_headers_strictly(headers, tbl)
+    if not is_valid_headers:
+        raise HTTPException(status_code=400, detail=rejection_msg)
 
-        affected_count = 0
+    # Validate row-level constraints
+    val_res = validate_dataset(rows=rows, mapping=mapping, target_table=tbl, db=db)
+    if not val_res["is_valid_for_commit"] or val_res["invalid_rows_count"] > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=val_res.get("validation_summary") or f"Cannot import dataset: Found {val_res['invalid_rows_count']} validation errors."
+        )
 
-        if table == "batch_inventory":
+    # Use database transaction
+    affected_count = 0
+    try:
+        sanitized_rows = [r for idx, r in enumerate(rows, start=1) if idx not in {e["row_number"] for e in val_res["errors"]}]
+
+        if tbl == "batch_inventory":
             if mode == "replace":
                 db.query(BatchInventory).delete()
+            for r in sanitized_rows:
+                batch_num = str(r.get(mapping.get("batch")) or r.get("batch", "")).strip()
+                sku = str(r.get(mapping.get("sku")) or r.get("sku", "")).strip().upper()
+                qty = parse_flexible_int(r.get(mapping.get("qty")) or r.get("qty")) or 0
+                exp_date = parse_flexible_date(r.get(mapping.get("expiry_date")) or r.get("expiry_date"))
+                mfg_date = parse_flexible_date(r.get(mapping.get("mfg_date")) or r.get("mfg_date"))
+                wh = str(r.get(mapping.get("warehouse")) or r.get("warehouse") or "WH-1").strip()
+                cold = r.get(mapping.get("cold_room")) if mapping.get("cold_room") else None
+                status = str(r.get(mapping.get("status")) or r.get("status") or "active").strip()
 
-            for r in rows:
-                batch_num = r.get("batch") or r.get("batch_id")
-                sku = r.get("sku") or r.get("product_id")
-                if not batch_num or not sku:
-                    continue
+                prod = db.query(Product).filter(Product.sku == sku).first()
+                if not prod:
+                    db.add(Product(sku=sku, brand=f"Brand {sku}", molecule=sku, category="General", storage="ambient", critical_drug=False))
+                    db.flush()
 
-                qty = int(r.get("qty", r.get("quantity", 0)))
-                exp_date_str = r.get("expiry_date", r.get("expiry"))
-                exp_date = date.fromisoformat(exp_date_str) if exp_date_str else date(2027, 1, 1)
-                mfg_date_str = r.get("mfg_date", r.get("mfg"))
-                mfg_date = date.fromisoformat(mfg_date_str) if mfg_date_str else date(2025, 1, 1)
-                wh = r.get("warehouse", "WH-1")
-                cold = r.get("cold_room", None)
-                status = r.get("status", "active")
-
-                existing = db.query(BatchInventory).filter(
-                    BatchInventory.batch == batch_num,
-                    BatchInventory.sku == sku,
-                ).first()
-
+                existing = db.query(BatchInventory).filter(BatchInventory.batch == batch_num, BatchInventory.sku == sku).first()
                 if existing and mode == "upsert":
                     existing.qty = qty
                     existing.expiry_date = exp_date
@@ -548,17 +839,146 @@ async def upload_csv_data(
                     existing.cold_room = cold
                     existing.status = status
                 else:
-                    new_item = BatchInventory(
-                        sku=sku,
-                        batch=batch_num,
-                        warehouse=wh,
-                        cold_room=cold,
-                        qty=qty,
-                        mfg_date=mfg_date,
-                        expiry_date=exp_date,
-                        status=status,
-                    )
-                    db.add(new_item)
+                    db.add(BatchInventory(sku=sku, batch=batch_num, warehouse=wh, cold_room=cold, qty=qty, mfg_date=mfg_date, expiry_date=exp_date, status=status))
+                affected_count += 1
+
+        elif tbl == "products":
+            if mode == "replace":
+                db.query(Product).delete()
+            for r in sanitized_rows:
+                sku = str(r.get(mapping.get("sku")) or r.get("sku", "")).strip().upper()
+                brand = str(r.get(mapping.get("brand")) or r.get("brand", "")).strip()
+                mol = str(r.get(mapping.get("molecule")) or r.get("molecule", "")).strip()
+                cat = str(r.get(mapping.get("category")) or r.get("category", "")).strip()
+                storage = str(r.get(mapping.get("storage")) or r.get("storage", "")).strip()
+                crit = parse_flexible_bool(r.get(mapping.get("critical_drug")) or r.get("critical_drug", False)) or False
+
+                existing = db.query(Product).filter(Product.sku == sku).first()
+                if existing and mode == "upsert":
+                    existing.brand = brand
+                    existing.molecule = mol
+                    existing.category = cat
+                    existing.storage = storage
+                    existing.critical_drug = crit
+                else:
+                    db.add(Product(sku=sku, brand=brand, molecule=mol, category=cat, storage=storage, critical_drug=crit))
+                affected_count += 1
+
+        elif tbl == "dispatches":
+            for r in sanitized_rows:
+                d_date = parse_flexible_date(r.get(mapping.get("date")) or r.get("date"))
+                cust = str(r.get(mapping.get("customer")) or r.get(mapping.get("customer_id")) or r.get("customer", "")).strip()
+                sku = str(r.get(mapping.get("sku")) or r.get("sku", "")).strip().upper()
+                batch = str(r.get(mapping.get("batch")) or r.get("batch", "")).strip()
+                qty = parse_flexible_int(r.get(mapping.get("qty")) or r.get("qty")) or 1
+                wh = str(r.get(mapping.get("from_warehouse")) or r.get("from_warehouse") or "WH-1").strip()
+
+                if not db.query(Customer).filter(Customer.customer_id == cust).first():
+                    db.add(Customer(customer_id=cust, name=f"Customer {cust}", type="chemist", location="Regional Territory", credit_terms="Net 30"))
+                    db.flush()
+                if not db.query(Product).filter(Product.sku == sku).first():
+                    db.add(Product(sku=sku, brand=f"Brand {sku}", molecule=sku, category="General", storage="ambient", critical_drug=False))
+                    db.flush()
+
+                db.add(Dispatch(date=d_date, customer_id=cust, sku=sku, batch=batch, qty=qty, from_warehouse=wh))
+                affected_count += 1
+
+        elif tbl == "customers":
+            for r in sanitized_rows:
+                c_id = str(r.get(mapping.get("customer")) or r.get(mapping.get("customer_id")) or r.get("customer", "")).strip()
+                c_type = str(r.get(mapping.get("type")) or r.get("type", "chemist")).strip().lower()
+                c_loc = str(r.get(mapping.get("location")) or r.get("location", "")).strip()
+                c_terms = str(r.get(mapping.get("credit_terms")) or r.get("credit_terms", "Net 30")).strip()
+                c_name = str(r.get(mapping.get("name")) or r.get("name") or f"Customer {c_id}").strip()
+
+                existing = db.query(Customer).filter(Customer.customer_id == c_id).first()
+                if existing and mode == "upsert":
+                    existing.type = c_type
+                    existing.location = c_loc
+                    existing.credit_terms = c_terms
+                    existing.name = c_name
+                else:
+                    db.add(Customer(customer_id=c_id, name=c_name, type=c_type, location=c_loc, credit_terms=c_terms))
+                affected_count += 1
+
+        elif tbl == "suppliers":
+            for r in sanitized_rows:
+                mfg = str(r.get(mapping.get("manufacturer")) or r.get("manufacturer", "")).strip()
+                sku = str(r.get(mapping.get("sku")) or r.get("sku", "")).strip().upper()
+                lead = parse_flexible_int(r.get(mapping.get("lead_time_days")) or r.get("lead_time_days")) or 7
+                moq = parse_flexible_int(r.get(mapping.get("moq")) or r.get("moq")) or 100
+                ret_w = parse_flexible_int(r.get(mapping.get("return_window_days")) or r.get("return_window_days")) or 60
+                cost = parse_flexible_float(r.get(mapping.get("unit_cost")) or r.get("unit_cost")) or 100.0
+
+                if not db.query(Product).filter(Product.sku == sku).first():
+                    db.add(Product(sku=sku, brand=f"Brand {sku}", molecule=sku, category="General", storage="ambient", critical_drug=False))
+                    db.flush()
+
+                existing = db.query(Supplier).filter(Supplier.manufacturer == mfg, Supplier.sku == sku).first()
+                if existing and mode == "upsert":
+                    existing.lead_time_days = lead
+                    existing.moq = moq
+                    existing.return_window_days = ret_w
+                    existing.unit_cost = cost
+                else:
+                    db.add(Supplier(manufacturer=mfg, sku=sku, lead_time_days=lead, moq=moq, return_window_days=ret_w, unit_cost=cost))
+                affected_count += 1
+
+        elif tbl in ("temperature_logs", "temp_logs"):
+            for r in sanitized_rows:
+                wh = str(r.get(mapping.get("warehouse")) or r.get("warehouse", "WH-1")).strip()
+                cr = str(r.get(mapping.get("cold_room")) or r.get("cold_room", "CR-1")).strip()
+                temp_val = parse_flexible_float(r.get(mapping.get("temp_c")) or r.get("temp_c")) or 4.0
+                raw_ts = r.get(mapping.get("timestamp")) or r.get(mapping.get("ts")) or r.get("timestamp") or r.get("ts")
+                ts_val = None
+                if raw_ts:
+                    try:
+                        ts_val = datetime.fromisoformat(str(raw_ts).replace("Z", "+00:00"))
+                    except Exception:
+                        pass
+                if not ts_val:
+                    ts_val = datetime.now(timezone.utc)
+                db.add(TempLog(warehouse=wh, cold_room=cr, ts=ts_val, temp_c=temp_val))
+                affected_count += 1
+
+        elif tbl == "purchase_orders":
+            for r in sanitized_rows:
+                po_num = str(r.get(mapping.get("po")) or r.get("po", "")).strip()
+                mfg = str(r.get(mapping.get("manufacturer")) or r.get("manufacturer", "")).strip()
+                sku = str(r.get(mapping.get("sku")) or r.get("sku", "")).strip().upper()
+                qty = parse_flexible_int(r.get(mapping.get("qty")) or r.get("qty")) or 100
+                exp_d = parse_flexible_date(r.get(mapping.get("expected_date")) or r.get("expected_date")) or (date.today() + timedelta(days=7))
+                status = str(r.get(mapping.get("status")) or r.get("status", "ordered")).strip().lower()
+
+                if not db.query(Product).filter(Product.sku == sku).first():
+                    db.add(Product(sku=sku, brand=f"Brand {sku}", molecule=sku, category="General", storage="ambient", critical_drug=False))
+                    db.flush()
+
+                existing = db.query(PurchaseOrder).filter(PurchaseOrder.po == po_num).first()
+                if existing and mode == "upsert":
+                    existing.manufacturer = mfg
+                    existing.sku = sku
+                    existing.qty = qty
+                    existing.expected_date = exp_d
+                    existing.status = status
+                else:
+                    db.add(PurchaseOrder(po=po_num, manufacturer=mfg, sku=sku, qty=qty, expected_date=exp_d, status=status))
+                affected_count += 1
+
+        elif tbl == "recalls":
+            for r in sanitized_rows:
+                sku = str(r.get(mapping.get("sku")) or r.get("sku", "")).strip().upper()
+                batches = str(r.get(mapping.get("batches")) or r.get("batches", "[]")).strip()
+                reason = str(r.get(mapping.get("reason")) or r.get("reason", "Recall")).strip()
+                r_class = str(r.get(mapping.get("recall_class")) or r.get("recall_class", "Class II")).strip()
+                r_date = parse_flexible_date(r.get(mapping.get("date")) or r.get("date")) or date.today()
+                rec_id = f"REC-{sku}-{uuid.uuid4().hex[:6].upper()}"
+
+                if not db.query(Product).filter(Product.sku == sku).first():
+                    db.add(Product(sku=sku, brand=f"Brand {sku}", molecule=sku, category="General", storage="ambient", critical_drug=False))
+                    db.flush()
+
+                db.add(Recall(id=rec_id, date=r_date, sku=sku, batches=batches, reason=reason, recall_class=r_class))
                 affected_count += 1
 
         db.commit()
@@ -567,22 +987,21 @@ async def upload_csv_data(
         append_ledger_event(
             db=db,
             event_type="CSV_INGESTED",
-            payload={"table": table, "mode": mode, "rows": affected_count, "filename": file.filename},
+            payload={"table": tbl, "mode": mode, "rows": affected_count, "filename": file.filename},
             ts=datetime.now(timezone.utc).isoformat(),
             trigger_auto_anchor=True,
         )
 
-        # Re-run scan to update findings
         execute_full_scan(db)
 
         return {
             "status": "success",
-            "table": table,
+            "table": tbl,
             "mode": mode,
             "rows_affected": affected_count,
-            "message": f"Successfully ingested {affected_count} rows into {table}",
+            "message": f"Successfully ingested {affected_count} records into {tbl}",
         }
 
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Ingestion transaction failed (rolled back): {str(e)}")

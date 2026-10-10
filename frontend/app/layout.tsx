@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Navbar } from "../components/Navbar";
+import { AppShell } from "../components/AppShell";
 import { UserProvider } from "../lib/UserContext";
 import { ToastProvider } from "../components/ui/Toast";
 
 export const metadata: Metadata = {
-  title: "TraceRx — Compliance Intelligence Desk",
-  description: "Enterprise agentic compliance desk for Arogya Pharma Distributors with deterministic risk auditing, hash-chained ledger, and EVM anchoring.",
+  title: "TraceRx — Pharmaceutical Safety & Recall Management",
+  description: "AI-powered pharmaceutical supply-chain monitoring and recall management system for Arogya Pharma Distributors.",
 };
 
 export default function RootLayout({
@@ -15,14 +15,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="light">
-      <body className="bg-slate-50 text-slate-900 min-h-screen flex flex-col pb-16 md:pb-0 antialiased selection:bg-blue-100 selection:text-blue-900">
+    <html lang="en" className="light" suppressHydrationWarning>
+      <body
+        className="bg-white text-slate-900 min-h-screen antialiased selection:bg-teal-100 selection:text-teal-900"
+        suppressHydrationWarning
+      >
         <UserProvider>
           <ToastProvider>
-            <Navbar />
-            <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-              {children}
-            </main>
+            <AppShell>{children}</AppShell>
           </ToastProvider>
         </UserProvider>
       </body>

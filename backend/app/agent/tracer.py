@@ -49,6 +49,7 @@ class ExecutionTracer:
     """
     def __init__(self, db: Session):
         self.db = db
+        self._run_seqs: Dict[str, int] = {}
 
     def start_run(
         self,
@@ -85,6 +86,7 @@ class ExecutionTracer:
         )
         self.db.add(run)
         self.db.commit()
+        self._run_seqs[run_id] = 0
         return run
 
     def record_event(
@@ -102,9 +104,9 @@ class ExecutionTracer:
         output_summary: Optional[Dict[str, Any]] = None,
         latency_ms: Optional[float] = None,
     ) -> AgentTraceEvent:
-        # Get next event_seq for this run
-        existing_count = self.db.query(AgentTraceEvent).filter(AgentTraceEvent.run_id == run_id).count()
-        event_seq = existing_count + 1
+        # Use fast in-memory sequence counter instead of slow remote SQL count
+        event_seq = self._run_seqs.get(run_id, 0) + 1
+        self._run_seqs[run_id] = event_seq
 
         clean_input = json.dumps(sanitize_payload(input_summary)) if input_summary is not None else None
         clean_evidence = json.dumps(referenced_evidence_ids) if referenced_evidence_ids is not None else None

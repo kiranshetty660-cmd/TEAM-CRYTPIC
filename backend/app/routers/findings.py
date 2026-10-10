@@ -13,12 +13,16 @@ def get_finding_by_id(id: str, db: Session = Depends(get_db)):
     options matrix, agent step trace, and explain panel formulas.
     """
     global _LATEST_FINDINGS_CACHE
-    if id in _LATEST_FINDINGS_CACHE:
-        return _LATEST_FINDINGS_CACHE[id]
+    if id not in _LATEST_FINDINGS_CACHE:
+        execute_full_scan(db)
 
-    # If cache is cold, populate by running full scan
-    execute_full_scan(db)
-    if id in _LATEST_FINDINGS_CACHE:
-        return _LATEST_FINDINGS_CACHE[id]
+    finding = _LATEST_FINDINGS_CACHE.get(id)
+    if not finding:
+        raise HTTPException(status_code=404, detail=f"Finding with ID {id} not found")
 
-    raise HTTPException(status_code=404, detail=f"Finding with ID {id} not found")
+    if not finding.multi_agent_summary:
+        from app.agent.orchestrator import run_agent_loop_on_finding
+        finding = run_agent_loop_on_finding(db, finding, allow_llm=False)
+        _LATEST_FINDINGS_CACHE[id] = finding
+
+    return finding

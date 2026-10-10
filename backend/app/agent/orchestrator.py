@@ -39,7 +39,7 @@ def validate_llm_decision(llm_json: Dict[str, Any], finding: Finding) -> bool:
 import time
 from app.agent.tracer import ExecutionTracer
 
-def run_agent_loop_on_finding(db: Session, finding: Finding) -> Finding:
+def run_agent_loop_on_finding(db: Session, finding: Finding, allow_llm: bool = True) -> Finding:
     """
     Coordinated Multi-Agent Intelligence Workflow with Complete Execution Tracing:
     1. Investigation Agent: Gathers factual batch telemetry, warehouse pallets, and dispatches.
@@ -56,8 +56,9 @@ def run_agent_loop_on_finding(db: Session, finding: Finding) -> Finding:
         or (finding.entities.get("batches", [None])[0] if finding.entities and isinstance(finding.entities.get("batches"), list) else None)
     )
     sku_val = finding.entities.get("sku") if finding.entities else None
-    provider_name = "nvidia_nim" if settings.NVIDIA_API_KEY else ("anthropic" if settings.ANTHROPIC_API_KEY else "deterministic")
-    model_name = settings.NVIDIA_MODEL if settings.NVIDIA_API_KEY else ("claude-3-5-sonnet-20241022" if settings.ANTHROPIC_API_KEY else None)
+    has_llm_creds = bool((settings.NVIDIA_API_KEY or settings.ANTHROPIC_API_KEY) and allow_llm)
+    provider_name = "nvidia_nim" if (settings.NVIDIA_API_KEY and allow_llm) else ("anthropic" if (settings.ANTHROPIC_API_KEY and allow_llm) else "deterministic")
+    model_name = settings.NVIDIA_MODEL if (settings.NVIDIA_API_KEY and allow_llm) else ("claude-3-5-sonnet-20241022" if (settings.ANTHROPIC_API_KEY and allow_llm) else None)
 
     # 1. Initialize persistent AgentRun
     run = tracer.start_run(
@@ -67,7 +68,7 @@ def run_agent_loop_on_finding(db: Session, finding: Finding) -> Finding:
         sku=sku_val,
         provider=provider_name,
         model=model_name,
-        ai_mode="LIVE_LLM" if (settings.NVIDIA_API_KEY or settings.ANTHROPIC_API_KEY) else "DETERMINISTIC_FALLBACK",
+        ai_mode="LIVE_LLM" if has_llm_creds else "DETERMINISTIC_FALLBACK",
     )
 
     # 2. Attempt Live LLM Tool-Use Loop if configured
@@ -76,12 +77,12 @@ def run_agent_loop_on_finding(db: Session, finding: Finding) -> Finding:
     live_tool_trace = []
     ai_mode = "DETERMINISTIC_FALLBACK"
 
-    if settings.NVIDIA_API_KEY:
+    if allow_llm and settings.NVIDIA_API_KEY:
         live_decision, live_tool_trace, detected_mode = run_nvidia_tool_loop(
             db=db,
             finding_dict=finding.model_dump(),
             options_summary=options_summary,
-            timeout_seconds=15.0,
+            timeout_seconds=5.0,
             tracer=tracer,
             run_id=run.run_id,
         )

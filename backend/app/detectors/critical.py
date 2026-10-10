@@ -11,36 +11,45 @@ def detect_critical_shortages(db: Session) -> List[Finding]:
     today = settings.today
     sixty_days_ago = today - timedelta(days=60)
 
+    # Pre-fetch lookup tables to eliminate N+1 network queries
+    suppliers = {s.sku: s for s in db.query(Supplier).all()}
+    stock_by_sku = dict(
+        db.query(BatchInventory.sku, func.sum(BatchInventory.qty))
+        .filter(BatchInventory.status == "active")
+        .group_by(BatchInventory.sku)
+        .all()
+    )
+    disp_by_sku = dict(
+        db.query(Dispatch.sku, func.sum(Dispatch.qty))
+        .filter(Dispatch.date >= sixty_days_ago)
+        .group_by(Dispatch.sku)
+        .all()
+    )
+    open_pos_by_sku = {}
+    for po in db.query(PurchaseOrder).filter(PurchaseOrder.status.in_(["ordered", "draft"])).all():
+        open_pos_by_sku.setdefault(po.sku, []).append(po)
+
     # All critical products
     critical_prods = db.query(Product).filter(Product.critical_drug == True).all()
 
     for prod in critical_prods:
         # Sum active stock across warehouses
-        total_stock = db.query(func.sum(BatchInventory.qty)).filter(
-            BatchInventory.sku == prod.sku,
-            BatchInventory.status == "active"
-        ).scalar() or 0
+        total_stock = stock_by_sku.get(prod.sku, 0)
 
         # Calculate average daily demand over 60 days
-        disp_60d = db.query(func.sum(Dispatch.qty)).filter(
-            Dispatch.sku == prod.sku,
-            Dispatch.date >= sixty_days_ago
-        ).scalar() or 0
+        disp_60d = disp_by_sku.get(prod.sku, 0)
         avg_daily_demand = max(1.0, round(disp_60d / 60.0, 1))
 
         cover_days = round(total_stock / avg_daily_demand, 1)
 
-        supp = db.query(Supplier).filter(Supplier.sku == prod.sku).first()
+        supp = suppliers.get(prod.sku)
         lead_time = supp.lead_time_days if supp else 7
         threshold_days = lead_time + 3
 
         if cover_days < threshold_days:
             # Check if there is an open PO arriving within lead_time + 1 days
-            po_arriving = db.query(PurchaseOrder).filter(
-                PurchaseOrder.sku == prod.sku,
-                PurchaseOrder.status.in_(["ordered", "draft"]),
-                PurchaseOrder.expected_date <= today + timedelta(days=lead_time + 1)
-            ).first()
+            pos = open_pos_by_sku.get(prod.sku, [])
+            po_arriving = any(po.expected_date <= today + timedelta(days=lead_time + 1) for po in pos)
 
             if not po_arriving:
                 recommended_reorder_qty = max(supp.moq if supp else 200, int(avg_daily_demand * 30))

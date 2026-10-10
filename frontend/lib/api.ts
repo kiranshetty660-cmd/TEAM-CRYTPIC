@@ -160,6 +160,16 @@ export const api = {
     }
     return res.json();
   },
+  getSchemas: async () => {
+    const res = await fetch(`${API_BASE}/api/data/schemas`);
+    if (!res.ok) {
+      throw new Error("Failed to fetch authoritative schemas");
+    }
+    return res.json();
+  },
+  getTemplateUrl: (table: string) => {
+    return `${API_BASE}/api/data/templates/${table}`;
+  },
 
   // Closed-Loop Supply Chain Intelligence APIs
   getCases: (status?: string, verificationStatus?: string) => {
@@ -227,4 +237,213 @@ export const api = {
     fetchJson<AgentRunDetail>(`/api/agent-monitor/runs/${runId}`),
   getAgentMonitorStats: () =>
     fetchJson<AgentMonitorStats>("/api/agent-monitor/stats"),
+
+  // ---------------------------------------------------------------------------
+  // Autonomous AI Calling Agent Endpoints
+  // ---------------------------------------------------------------------------
+  createComplaint: (data: {
+    caller_name?: string;
+    caller_phone?: string;
+    caller_organization?: string;
+    sku?: string;
+    medicine_name?: string;
+    batch?: string;
+    complaint_category?: string;
+    complaint_description: string;
+    reported_quantity?: number;
+    potential_harm?: boolean;
+    potential_harm_details?: string;
+  }) => fetchJson<any>("/api/calling/complaints", { method: "POST", body: JSON.stringify(data) }),
+
+  getComplaints: (params?: { urgency?: string; verification?: string; sku?: string; batch?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.urgency) q.append("urgency", params.urgency);
+    if (params?.verification) q.append("verification", params.verification);
+    if (params?.sku) q.append("sku", params.sku);
+    if (params?.batch) q.append("batch", params.batch);
+    const qs = q.toString() ? `?${q.toString()}` : "";
+    return fetchJson<any[]>(`/api/calling/complaints${qs}`);
+  },
+
+  getComplaintDetail: (id: string) => fetchJson<any>(`/api/calling/complaints/${id}`),
+
+  linkComplaint: (id: string, target_incident_id: string) =>
+    fetchJson<any>(`/api/calling/complaints/${id}/link`, {
+      method: "POST",
+      body: JSON.stringify({ target_incident_id }),
+    }),
+
+  escalateComplaint: (id: string) =>
+    fetchJson<any>(`/api/calling/complaints/${id}/escalate`, { method: "POST" }),
+
+  createCampaign: (data: { sku: string; batches: string[]; reason: string; owner_message: string }) =>
+    fetchJson<any>("/api/calling/campaigns", { method: "POST", body: JSON.stringify(data) }),
+
+  getCampaigns: () => fetchJson<any[]>("/api/calling/campaigns"),
+
+  getCampaign: (id: string) => fetchJson<any>(`/api/calling/campaigns/${id}`),
+
+  previewCampaign: (id: string) =>
+    fetchJson<any>(`/api/calling/campaigns/${id}/preview`, { method: "POST" }),
+
+  approveCampaign: (id: string, approved_by = "Authorized Quality Owner") =>
+    fetchJson<any>(`/api/calling/campaigns/${id}/approve`, {
+      method: "POST",
+      body: JSON.stringify({ approved_by }),
+    }),
+
+  startCampaign: (id: string) =>
+    fetchJson<any>(`/api/calling/campaigns/${id}/start`, { method: "POST" }),
+
+  pauseCampaign: (id: string) =>
+    fetchJson<any>(`/api/calling/campaigns/${id}/pause`, { method: "POST" }),
+
+  resumeCampaign: (id: string) =>
+    fetchJson<any>(`/api/calling/campaigns/${id}/resume`, { method: "POST" }),
+
+  cancelCampaign: (id: string) =>
+    fetchJson<any>(`/api/calling/campaigns/${id}/cancel`, { method: "POST" }),
+
+  getCampaignTasks: (id: string, status?: string) => {
+    const q = status ? `?status=${status}` : "";
+    return fetchJson<any[]>(`/api/calling/campaigns/${id}/tasks${q}`);
+  },
+
+  getCampaignReport: (id: string) =>
+    fetchJson<any>(`/api/calling/campaigns/${id}/report`),
+
+  simulateInboundTurn: (data: {
+    call_id?: string;
+    caller_message: string;
+    caller_phone?: string;
+    conversation_history?: Array<{ role: string; text: string }>;
+  }) => fetchJson<any>("/api/calling/simulate/inbound", { method: "POST", body: JSON.stringify(data) }),
+
+  simulateOutboundTurn: (data: { task_id: string; recipient_message: string }) =>
+    fetchJson<any>("/api/calling/simulate/outbound", { method: "POST", body: JSON.stringify(data) }),
+
+  getCallRecords: (params?: { direction?: string; campaign_id?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.direction) q.append("direction", params.direction);
+    if (params?.campaign_id) q.append("campaign_id", params.campaign_id);
+    const qs = q.toString() ? `?${q.toString()}` : "";
+    return fetchJson<any[]>(`/api/calling/records${qs}`);
+  },
+
+  getCallRecord: (id: string) => fetchJson<any>(`/api/calling/records/${id}`),
+
+  getOwnerNotifications: (params?: { urgency?: string }) => {
+    const q = params?.urgency ? `?urgency=${params.urgency}` : "";
+    return fetchJson<any[]>(`/api/calling/notifications${q}`);
+  },
+
+  getLiveKitToken: (data: {
+    room_name?: string;
+    participant_identity?: string;
+    participant_name?: string;
+    mode?: string;
+    metadata?: any;
+  }) => fetchJson<any>("/api/calling/livekit/token", { method: "POST", body: JSON.stringify(data) }),
+
+  sendLiveKitTurn: (data: {
+    room_name: string;
+    user_transcript: string;
+    operating_mode?: string;
+    session_history?: Array<{ role: string; text: string }>;
+    task_id?: string;
+    campaign_id?: string;
+  }) => fetchJson<any>("/api/calling/livekit/agent-turn", { method: "POST", body: JSON.stringify(data) }),
+
+  getLiveKitConfig: () => fetchJson<any>("/api/calling/livekit/config"),
+
+  // ---------------------------------------------------------------------------
+  // CYPHER 2026 Challenge 07 - B2231 Recall Demonstration
+  // ---------------------------------------------------------------------------
+  demoResetScenario: () => fetchJson<any>("/api/demo/reset-scenario", { method: "POST" }),
+  demoTriggerRecall: (data?: any) => fetchJson<any>("/api/demo/trigger-recall", { method: "POST", body: JSON.stringify(data || {}) }),
+  demoBlockBatch: (data?: any) => fetchJson<any>("/api/demo/block-batch", { method: "POST", body: JSON.stringify(data || {}) }),
+  demoAttemptDispatch: (data: any) => fetchJson<any>("/api/demo/dispatches", { method: "POST", body: JSON.stringify(data) }),
+  demoTraceRecipients: () => fetchJson<any>("/api/demo/trace-recipients"),
+  demoGenerateCampaign: (data?: any) => fetchJson<any>("/api/demo/generate-campaign", { method: "POST", body: JSON.stringify(data || {}) }),
+  demoApproveAndSend: (data?: any) => fetchJson<any>("/api/demo/approve-and-send", { method: "POST", body: JSON.stringify(data || {}) }),
+  demoGetReplacementAnalysis: () => fetchJson<any>("/api/demo/replacement-analysis"),
+  demoGetHospitalPrioritization: () => fetchJson<any>("/api/demo/hospital-prioritization"),
+  demoDraftUrgentPO: (data?: any) => fetchJson<any>("/api/demo/draft-urgent-po", { method: "POST", body: JSON.stringify(data || {}) }),
+  demoGetAuditVerification: () => fetchJson<any>("/api/demo/audit-verification"),
+  demoRunAutonomousAgents: (data?: any) => fetchJson<any>("/api/demo/run-autonomous-agents", { method: "POST", body: JSON.stringify(data || {}) }),
+  demoGetSampleExpiredCsv: () => fetchJson<any>("/api/demo/sample-expired-csv"),
+  demoUploadExpiryDataset: async (fileOrData: File | { csv_text?: string; rows?: any[]; filename?: string }) => {
+    if (typeof window !== "undefined" && fileOrData instanceof File) {
+      const formData = new FormData();
+      formData.append("file", fileOrData);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/demo/upload-expiry-dataset`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) {
+        let err = await res.text();
+        try { err = JSON.parse(err).detail || err; } catch(_) {}
+        throw new Error(err || "Failed to upload expiry dataset");
+      }
+      return res.json();
+    }
+    return fetchJson<any>("/api/demo/upload-expiry-dataset", {
+      method: "POST",
+      body: JSON.stringify(fileOrData),
+    });
+  },
+  demoApproveExpiryAction: (data: any) => fetchJson<any>("/api/demo/approve-expiry-action", { method: "POST", body: JSON.stringify(data) }),
+  demoGetPendingExpiryCases: () => fetchJson<{ count: number; cases: any[]; latest_case: any }>("/api/demo/pending-expiry-cases"),
+
+  // ---------------------------------------------------------------------------
+  // Email & SMS Complaints / Recall Notifications
+  // ---------------------------------------------------------------------------
+  createIncident: (data: any) => fetchJson<any>("/api/incidents", { method: "POST", body: JSON.stringify(data) }),
+  listIncidents: (params?: any) => {
+    const q = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== "") q.append(k, String(v)); });
+    }
+    const qs = q.toString() ? `?${q.toString()}` : "";
+    return fetchJson<any>(`/api/incidents${qs}`);
+  },
+  getIncidentDetail: (id: string) => fetchJson<any>(`/api/incidents/${id}`),
+  updateIncident: (id: string, data: any) => fetchJson<any>(`/api/incidents/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  previewIncidentRecipients: (id: string) => fetchJson<any>(`/api/incidents/${id}/preview-recipients`, { method: "POST" }),
+  createIncidentCampaign: (id: string, data?: any) => fetchJson<any>(`/api/incidents/${id}/campaigns`, { method: "POST", body: JSON.stringify(data || {}) }),
+  listNotificationCampaigns: (params?: any) => {
+    const q = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== "") q.append(k, String(v)); });
+    }
+    const qs = q.toString() ? `?${q.toString()}` : "";
+    return fetchJson<any[]>(`/api/notifications/campaigns${qs}`);
+  },
+  getNotificationCampaignDetail: (id: string) => fetchJson<any>(`/api/notifications/campaigns/${id}`),
+  approveNotificationCampaign: (id: string, data: any) => fetchJson<any>(`/api/notifications/campaigns/${id}/approve`, { method: "POST", body: JSON.stringify(data) }),
+  rejectNotificationCampaign: (id: string, data: any) => fetchJson<any>(`/api/notifications/campaigns/${id}/reject`, { method: "POST", body: JSON.stringify(data) }),
+  escalateNotificationCampaign: (id: string, data: any) => fetchJson<any>(`/api/notifications/campaigns/${id}/escalate`, { method: "POST", body: JSON.stringify(data) }),
+  sendNotificationCampaign: (id: string, idempotencyKey?: string) => fetchJson<any>(`/api/notifications/campaigns/${id}/send`, {
+    method: "POST",
+    headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
+  }),
+  retryFailedNotificationCampaign: (id: string) => fetchJson<any>(`/api/notifications/campaigns/${id}/retry-failed`, { method: "POST" }),
+  acknowledgeRecipient: (id: string, data: any) => fetchJson<any>(`/api/notifications/recipients/${id}/acknowledge`, { method: "POST", body: JSON.stringify(data) }),
+
+  // ---------------------------------------------------------------------------
+  // Purchase Orders & Supply Chain
+  // ---------------------------------------------------------------------------
+  listPurchaseOrders: (params?: { status?: string; sku?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.status && params.status !== "all") q.append("status", params.status);
+    if (params?.sku) q.append("sku", params.sku);
+    const qs = q.toString() ? `?${q.toString()}` : "";
+    return fetchJson<{ total: number; drafts_count: number; purchase_orders: any[] }>(`/api/supply-chain/purchase-orders${qs}`);
+  },
+  createPurchaseOrder: (data: any) => fetchJson<any>("/api/supply-chain/purchase-orders", { method: "POST", body: JSON.stringify(data) }),
+  approvePurchaseOrder: (po: string, approvedBy?: string) => {
+    const qs = approvedBy ? `?approved_by=${encodeURIComponent(approvedBy)}` : "";
+    return fetchJson<any>(`/api/supply-chain/purchase-orders/${po}/approve${qs}`, { method: "POST" });
+  },
 };
+

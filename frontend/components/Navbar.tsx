@@ -16,6 +16,8 @@ import {
   X,
   Layers,
   Cpu,
+  Sparkles,
+  FileText,
 } from "lucide-react";
 import { useUser } from "../lib/UserContext";
 
@@ -26,13 +28,14 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
-    { href: "/", label: "Compliance Board", icon: Activity },
-    { href: "/cases", label: "Closed-Loop Cases", icon: Layers },
-    { href: "/agents", label: "Agent Monitor", icon: Cpu },
+    { href: "/recall-demo", label: "CYPHER B2231 Demo", icon: Sparkles, highlight: true },
+    { href: "/", label: "Board", icon: Activity },
+    { href: "/notifications", label: "Complaints & Recalls", icon: FileText },
     { href: "/trace", label: "Batch Trace", icon: Search },
-    { href: "/approvals", label: "Approvals Queue", icon: CheckSquare },
-    { href: "/inventory", label: "Batch Inventory", icon: Boxes },
-    { href: "/verify", label: "Ledger & Verify", icon: Lock },
+    { href: "/approvals", label: "Approvals", icon: CheckSquare },
+    { href: "/inventory", label: "Inventory", icon: Boxes },
+    { href: "/verify", label: "Ledger", icon: Lock },
+    { href: "/cases", label: "Cases", icon: Layers },
   ];
 
   return (
@@ -61,17 +64,32 @@ export function Navbar() {
           {navLinks.map((link) => {
             const Icon = link.icon;
             const isActive = pathname === link.href || (link.href !== "/" && pathname.startsWith(link.href));
+            const isHighlight = (link as any).highlight;
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                  isActive
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                  isHighlight
+                    ? isActive
+                      ? "bg-amber-600 text-white font-bold shadow-sm"
+                      : "bg-amber-500/10 text-amber-900 border border-amber-300 hover:bg-amber-500 hover:text-white font-semibold shadow-xs"
+                    : isActive
                     ? "bg-slate-100 text-slate-900 font-semibold"
                     : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? "text-slate-900" : "text-slate-400"}`} />
+                <Icon
+                  className={`w-4 h-4 ${
+                    isHighlight
+                      ? isActive
+                        ? "text-white"
+                        : "text-amber-600"
+                      : isActive
+                      ? "text-slate-900"
+                      : "text-slate-400"
+                  }`}
+                />
                 {link.label}
               </Link>
             );
@@ -153,16 +171,21 @@ export function Navbar() {
           {navLinks.map((link) => {
             const Icon = link.icon;
             const isActive = pathname === link.href || (link.href !== "/" && pathname.startsWith(link.href));
+            const isHighlight = (link as any).highlight;
             return (
               <Link
                 key={link.href}
                 href={link.href}
                 onClick={() => setMobileMenuOpen(false)}
                 className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs font-medium ${
-                  isActive ? "bg-slate-100 text-slate-900 font-bold" : "text-slate-600 hover:bg-slate-50"
+                  isHighlight
+                    ? "bg-amber-50 text-amber-900 border border-amber-300 font-bold"
+                    : isActive
+                    ? "bg-slate-100 text-slate-900 font-bold"
+                    : "text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className={`w-4 h-4 ${isHighlight ? "text-amber-600" : ""}`} />
                 {link.label}
               </Link>
             );

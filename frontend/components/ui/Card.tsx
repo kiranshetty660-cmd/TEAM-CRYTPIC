@@ -6,12 +6,12 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   hoverEffect?: boolean;
 }
 
-export function Card({ children, className = "", hoverEffect = false, ...props }: CardProps) {
+export function Card({ children, className = "", hoverEffect = true, ...props }: CardProps) {
   return (
     <div
-      className={`bg-white border border-slate-200 rounded-xl p-5 shadow-sm transition-all duration-150 ${
-        hoverEffect ? "hover:border-slate-300 hover:shadow-md" : ""
-      } ${className}`}
+      className={`bg-white border border-slate-200/90 rounded-xl p-5 shadow-card ${
+        hoverEffect ? "hover:border-slate-300 hover:shadow-card-hover" : ""
+      } transition-all duration-200 ${className}`}
       {...props}
     >
       {children}

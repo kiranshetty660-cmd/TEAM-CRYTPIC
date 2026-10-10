@@ -49,17 +49,19 @@ class Customer(Base):
     type = Column(String(20), nullable=False)  # 'chemist' or 'hospital'
     location = Column(String(200), nullable=False)
     credit_terms = Column(String(50), nullable=False, default="Net 30")
+    phone = Column(String(50), nullable=True)
+    email = Column(String(150), nullable=True)
 
 class Dispatch(Base):
     __tablename__ = "dispatches"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     date = Column(Date, nullable=False, index=True)
-    customer_id = Column(String(50), ForeignKey("customers.customer_id"), nullable=False, index=True)
-    sku = Column(String(50), ForeignKey("products.sku"), nullable=False, index=True)
+    customer_id = Column(String(50), nullable=False, index=True)
+    sku = Column(String(50), nullable=False, index=True)
     batch = Column(String(50), nullable=False, index=True)
     qty = Column(Integer, nullable=False)
-    from_warehouse = Column(String(50), nullable=False)
+    from_warehouse = Column(String(50), nullable=False, default="WH-1")
 
     __table_args__ = (
         Index("idx_dispatches_sku_date", "sku", "date"),
@@ -279,4 +281,282 @@ class AgentTraceEvent(Base):
     output_summary = Column(Text, nullable=True)  # JSON
     latency_ms = Column(Float, nullable=True)
     timestamp = Column(DateTime, nullable=False)
+
+
+# =============================================================================
+# Autonomous AI Calling Agent Entities (Complaints & Outbound Medicine Alerts)
+# =============================================================================
+
+class CallCampaign(Base):
+    __tablename__ = "call_campaigns"
+
+    id = Column(String(50), primary_key=True, index=True)
+    sku = Column(String(50), ForeignKey("products.sku"), nullable=False, index=True)
+    batches = Column(Text, nullable=False)  # JSON list of batch IDs e.g. '["B2231"]'
+    reason = Column(Text, nullable=False)
+    owner_message = Column(Text, nullable=False)
+    status = Column(String(30), nullable=False, default="draft")
+    # 'draft', 'pending_approval', 'approved', 'running', 'paused', 'completed', 'cancelled', 'failed'
+    created_by = Column(String(100), nullable=False, default="owner")
+    approved_by = Column(String(100), nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+    message_hash = Column(String(64), nullable=True)  # SHA-256 to invalidate approval on material edits
+    total_recipients = Column(Integer, nullable=False, default=0)
+    eligible_recipients = Column(Integer, nullable=False, default=0)
+    unresolved_recipients = Column(Integer, nullable=False, default=0)
+    calls_queued = Column(Integer, nullable=False, default=0)
+    calls_in_progress = Column(Integer, nullable=False, default=0)
+    calls_answered = Column(Integer, nullable=False, default=0)
+    calls_completed = Column(Integer, nullable=False, default=0)
+    acknowledgments_received = Column(Integer, nullable=False, default=0)
+    stock_isolated_count = Column(Integer, nullable=False, default=0)
+    calls_failed = Column(Integer, nullable=False, default=0)
+    calls_no_answer = Column(Integer, nullable=False, default=0)
+    calls_busy = Column(Integer, nullable=False, default=0)
+    requires_follow_up_count = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, nullable=False)
+    updated_at = Column(DateTime, nullable=False)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+
+class CallTask(Base):
+    __tablename__ = "call_tasks"
+
+    id = Column(String(50), primary_key=True, index=True)
+    campaign_id = Column(String(50), ForeignKey("call_campaigns.id"), nullable=False, index=True)
+    customer_id = Column(String(50), ForeignKey("customers.customer_id"), nullable=False, index=True)
+    customer_name = Column(String(200), nullable=False)
+    customer_type = Column(String(20), nullable=False)  # 'chemist' or 'hospital'
+    location = Column(String(200), nullable=False)
+    phone = Column(String(50), nullable=True)
+    is_phone_valid = Column(Boolean, nullable=False, default=True)
+    dispatched_batches = Column(Text, nullable=False)  # JSON list of batch IDs
+    total_dispatched_qty = Column(Integer, nullable=False, default=0)
+    status = Column(String(30), nullable=False, default="pending")
+    # 'pending', 'queued', 'calling', 'answered', 'completed', 'no_answer', 'busy', 'failed', 'cancelled', 'needs_follow_up'
+    retry_count = Column(Integer, nullable=False, default=0)
+    max_retries = Column(Integer, nullable=False, default=3)
+    last_call_id = Column(String(100), nullable=True)
+    call_attempts = Column(Integer, nullable=False, default=0)
+    answered = Column(Boolean, nullable=False, default=False)
+    message_communicated = Column(Boolean, nullable=False, default=False)
+    acknowledged = Column(Boolean, nullable=False, default=False)
+    confirmed_stock_isolation = Column(Boolean, nullable=False, default=False)
+    reported_remaining_qty = Column(Integer, nullable=True)
+    response_notes = Column(Text, nullable=True)
+    requires_human_follow_up = Column(Boolean, nullable=False, default=False)
+    follow_up_reason = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False)
+    updated_at = Column(DateTime, nullable=False)
+    last_attempt_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (
+        Index("idx_call_tasks_campaign_status", "campaign_id", "status"),
+        Index("idx_call_tasks_cust_camp", "customer_id", "campaign_id"),
+    )
+
+
+class CallRecord(Base):
+    __tablename__ = "call_records"
+
+    id = Column(String(100), primary_key=True, index=True)  # CALL-UUID or Provider SID
+    provider_call_id = Column(String(100), nullable=True, index=True)
+    direction = Column(String(20), nullable=False)  # 'inbound' or 'outbound'
+    operating_mode = Column(String(40), nullable=False)  # 'COMPLAINT_INTAKE' or 'OUTBOUND_MEDICINE_ALERT'
+    campaign_id = Column(String(50), nullable=True, index=True)
+    task_id = Column(String(50), nullable=True, index=True)
+    caller_phone = Column(String(50), nullable=True)
+    recipient_phone = Column(String(50), nullable=True)
+    customer_id = Column(String(50), nullable=True, index=True)
+    customer_name = Column(String(200), nullable=True)
+    telephony_provider = Column(String(50), nullable=False, default="simulator")
+    status = Column(String(30), nullable=False, default="initiated")
+    duration_seconds = Column(Integer, nullable=False, default=0)
+    started_at = Column(DateTime, nullable=False)
+    ended_at = Column(DateTime, nullable=True)
+    transcript = Column(Text, nullable=True)  # JSON list of turns
+    audio_recording_url = Column(String(255), nullable=True)
+    outcome_summary = Column(Text, nullable=True)
+    structured_payload = Column(Text, nullable=True)  # JSON
+
+
+class Complaint(Base):
+    __tablename__ = "complaints"
+
+    id = Column(String(50), primary_key=True, index=True)  # CMP-YYYYMMDD-XXXX or INC-YYYYMMDD-XXXX
+    incident_source = Column(String(50), nullable=False, default="website_complaint")
+    # 'website_complaint' (patient/customer) or 'owner_quality_issue' (warehouse owner / authorized staff)
+    source_call_id = Column(String(100), nullable=True, index=True)
+    caller_name = Column(String(100), nullable=True)  # reporter name
+    caller_phone = Column(String(50), nullable=True)  # reporter phone
+    caller_email = Column(String(150), nullable=True)  # reporter email
+    caller_organization = Column(String(200), nullable=True)
+    customer_id = Column(String(50), nullable=True, index=True)
+    warehouse = Column(String(50), nullable=True)  # warehouse where known
+    sku = Column(String(50), nullable=True, index=True)
+    medicine_name = Column(String(200), nullable=True)
+    batch = Column(String(50), nullable=True, index=True)
+    is_batch_missing = Column(Boolean, nullable=False, default=False)
+    manufacturer = Column(String(200), nullable=True)
+    complaint_category = Column(String(50), nullable=False, default="quality")
+    # 'quality', 'packaging', 'efficacy', 'adverse_reaction', 'contamination', 'counterfeit'
+    complaint_description = Column(Text, nullable=False)
+    incident_timestamp = Column(DateTime, nullable=True)
+    incident_location = Column(String(200), nullable=True)
+    reported_quantity = Column(Integer, nullable=True)
+    stock_remaining = Column(Boolean, nullable=False, default=False)
+    potential_harm = Column(Boolean, nullable=False, default=False)
+    potential_harm_details = Column(Text, nullable=True)
+    urgency = Column(String(20), nullable=False, default="high")  # critical, high, medium, low
+    verification_status = Column(String(30), nullable=False, default="unverified")
+    # 'verified_sku_batch', 'verified_sku_only', 'unverified', 'disputed'
+    investigation_status = Column(String(30), nullable=False, default="new")
+    # 'new', 'under_review', 'investigating', 'linked_to_incident', 'escalated', 'closed'
+    linked_incident_id = Column(String(50), nullable=True, index=True)
+    assigned_reviewer = Column(String(100), nullable=False, default="Quality Safety Lead")
+    assigned_owner = Column(String(100), nullable=False, default="Quality Safety Lead")
+    rejection_reason = Column(Text, nullable=True)
+    approval_history = Column(Text, nullable=True)  # JSON list of approval events
+    affected_customers_summary = Column(Text, nullable=True)  # JSON cache of affected customers
+    campaign_id = Column(String(50), nullable=True, index=True)
+    raw_caller_statement = Column(Text, nullable=True)
+    source_evidence = Column(Text, nullable=True)  # JSON list or dict of supporting evidence
+    created_at = Column(DateTime, nullable=False)
+    updated_at = Column(DateTime, nullable=False)
+
+
+class ComplaintEvent(Base):
+    __tablename__ = "complaint_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    complaint_id = Column(String(50), ForeignKey("complaints.id"), nullable=False, index=True)
+    event_type = Column(String(50), nullable=False)
+    # CREATED, OWNER_ALERTED, ESCALATED, STATUS_CHANGED, LINKED, APPROVED, REJECTED, CAMPAIGN_INITIATED
+    actor = Column(String(100), nullable=False)
+    notes = Column(Text, nullable=True)
+    payload = Column(Text, nullable=True)  # JSON
+    timestamp = Column(DateTime, nullable=False)
+
+
+class OwnerNotification(Base):
+    __tablename__ = "owner_notifications"
+
+    id = Column(String(50), primary_key=True, index=True)  # NOTIF-UUID
+    type = Column(String(50), nullable=False)
+    # COMPLAINT_RECEIVED, SERIOUS_HARM_ESCALATION, CAMPAIGN_STARTED, CAMPAIGN_FAILED, STOCK_REPORTED, MANUAL_INTERVENTION_NEEDED
+    reference_id = Column(String(50), nullable=False, index=True)
+    recipient = Column(String(100), nullable=False, default="Responsible Owner")
+    channel = Column(String(30), nullable=False, default="in_app")  # in_app, webhook, sms, email
+    title = Column(String(255), nullable=False)
+    message = Column(Text, nullable=False)
+    urgency = Column(String(20), nullable=False, default="high")  # critical, high, normal
+    status = Column(String(20), nullable=False, default="delivered")  # queued, delivered, failed, acknowledged
+    delivery_attempts = Column(Integer, nullable=False, default=1)
+    last_error = Column(Text, nullable=True)
+    escalated = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, nullable=False)
+    delivered_at = Column(DateTime, nullable=True)
+
+
+# =============================================================================
+# Email & SMS Complaint/Recall Notification Campaign Entities
+# =============================================================================
+
+class NotificationCampaign(Base):
+    __tablename__ = "notification_campaigns"
+
+    id = Column(String(50), primary_key=True, index=True)  # CMPGN-YYYYMMDD-XXXX
+    incident_id = Column(String(50), ForeignKey("complaints.id"), nullable=False, index=True)
+    sku = Column(String(50), ForeignKey("products.sku"), nullable=False, index=True)
+    batch = Column(String(50), nullable=False, index=True)
+    warehouse = Column(String(50), nullable=True)
+    title = Column(String(255), nullable=False)
+    status = Column(String(30), nullable=False, default="draft")
+    # 'draft', 'pending_approval', 'approved', 'queued', 'sending', 'partially_sent', 'sent', 'failed', 'closed'
+    email_subject = Column(String(255), nullable=False)
+    email_body_html = Column(Text, nullable=False)
+    email_body_text = Column(Text, nullable=False)
+    sms_text = Column(Text, nullable=False)
+    created_by = Column(String(100), nullable=False, default="System")
+    approved_by = Column(String(100), nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+    approval_role = Column(String(50), nullable=True)
+    approval_decision = Column(String(30), nullable=True)  # 'approved', 'rejected'
+    approval_reason = Column(Text, nullable=True)
+    rejection_reason = Column(Text, nullable=True)
+    is_escalated = Column(Boolean, nullable=False, default=False)
+    escalated_to = Column(String(100), nullable=True)
+    escalated_at = Column(DateTime, nullable=True)
+    total_recipients = Column(Integer, nullable=False, default=0)
+    eligible_recipients = Column(Integer, nullable=False, default=0)
+    missing_contact_count = Column(Integer, nullable=False, default=0)
+    emails_sent = Column(Integer, nullable=False, default=0)
+    emails_delivered = Column(Integer, nullable=False, default=0)
+    emails_failed = Column(Integer, nullable=False, default=0)
+    sms_sent = Column(Integer, nullable=False, default=0)
+    sms_delivered = Column(Integer, nullable=False, default=0)
+    sms_failed = Column(Integer, nullable=False, default=0)
+    acknowledged_count = Column(Integer, nullable=False, default=0)
+    stock_isolated_count = Column(Integer, nullable=False, default=0)
+    idempotency_key = Column(String(64), nullable=True, index=True)
+    created_at = Column(DateTime, nullable=False)
+    updated_at = Column(DateTime, nullable=False)
+    sent_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (
+        Index("idx_notif_camp_incident", "incident_id"),
+        Index("idx_notif_camp_sku_batch", "sku", "batch"),
+    )
+
+
+class NotificationRecipient(Base):
+    __tablename__ = "notification_recipients"
+
+    id = Column(String(50), primary_key=True, index=True)  # NRCP-UUID
+    campaign_id = Column(String(50), ForeignKey("notification_campaigns.id"), nullable=False, index=True)
+    customer_id = Column(String(50), ForeignKey("customers.customer_id"), nullable=False, index=True)
+    customer_name = Column(String(200), nullable=False)
+    customer_type = Column(String(20), nullable=False)  # 'chemist' or 'hospital'
+    location = Column(String(200), nullable=False)
+    phone = Column(String(50), nullable=True)
+    email = Column(String(150), nullable=True)
+    is_phone_valid = Column(Boolean, nullable=False, default=False)
+    is_email_valid = Column(Boolean, nullable=False, default=False)
+    missing_contacts = Column(String(50), nullable=False, default="none")
+    # 'none', 'missing_email', 'missing_phone', 'missing_all'
+    dispatched_qty = Column(Integer, nullable=False, default=0)
+    dispatches_count = Column(Integer, nullable=False, default=0)
+    last_dispatch_date = Column(Date, nullable=True)
+    email_status = Column(String(30), nullable=False, default="pending")
+    # 'not_applicable', 'pending', 'queued', 'sent', 'delivered', 'failed'
+    email_provider_id = Column(String(100), nullable=True)
+    email_sent_at = Column(DateTime, nullable=True)
+    email_delivered_at = Column(DateTime, nullable=True)
+    email_error = Column(Text, nullable=True)
+    email_retries = Column(Integer, nullable=False, default=0)
+    sms_status = Column(String(30), nullable=False, default="pending")
+    # 'not_applicable', 'pending', 'queued', 'sent', 'delivered', 'failed'
+    sms_provider_id = Column(String(100), nullable=True)
+    sms_sent_at = Column(DateTime, nullable=True)
+    sms_delivered_at = Column(DateTime, nullable=True)
+    sms_error = Column(Text, nullable=True)
+    sms_retries = Column(Integer, nullable=False, default=0)
+    acknowledged = Column(Boolean, nullable=False, default=False)
+    acknowledged_at = Column(DateTime, nullable=True)
+    acknowledged_by = Column(String(100), nullable=True)
+    acknowledgement_notes = Column(Text, nullable=True)
+    stock_isolated = Column(Boolean, nullable=False, default=False)
+    stock_isolated_qty = Column(Integer, nullable=True)
+    created_at = Column(DateTime, nullable=False)
+    updated_at = Column(DateTime, nullable=False)
+
+    __table_args__ = (
+        Index("idx_notif_rcpt_camp_status", "campaign_id", "email_status", "sms_status"),
+        Index("idx_notif_rcpt_cust_camp", "customer_id", "campaign_id"),
+    )
+
+
 

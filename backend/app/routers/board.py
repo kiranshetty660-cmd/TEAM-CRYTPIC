@@ -37,11 +37,13 @@ def execute_full_scan(db: Session) -> BoardResponse:
     # 2. Rank findings deterministically
     ranked = rank_findings(all_findings)
 
-    # 3. Run Agent loop for top findings
+    # 3. Run Agent loop for top critical findings (remaining findings lazily analyzed on detail view)
     processed_findings = []
-    for f in ranked:
-        # Run agent on findings
-        processed = run_agent_loop_on_finding(db, f)
+    for idx, f in enumerate(ranked):
+        if idx < 3 or f.type == "recall":
+            processed = run_agent_loop_on_finding(db, f, allow_llm=False)
+        else:
+            processed = f
         processed_findings.append(processed)
         _LATEST_FINDINGS_CACHE[processed.id] = processed
 
@@ -72,30 +74,39 @@ def execute_full_scan(db: Session) -> BoardResponse:
         scanned_at=datetime.now(timezone.utc).isoformat(),
     )
 
+_LATEST_KPIS_CACHE: Optional[BoardKPI] = None
+_LATEST_KPIS_TS: float = 0.0
+
 @router.get("/board", response_model=BoardResponse)
 def get_board(db: Session = Depends(get_db)):
     """
     Returns high-level KPI strip, ranked risk findings, and weight matrix.
     If no scan has occurred yet, runs initial scan automatically.
     """
-    global _LATEST_FINDINGS_CACHE
+    global _LATEST_FINDINGS_CACHE, _LATEST_KPIS_CACHE, _LATEST_KPIS_TS
     if not _LATEST_FINDINGS_CACHE:
         return execute_full_scan(db)
 
-    # Compute current KPIs
-    open_recalls = db.query(Recall).count()
-    cold_breaches = sum(1 for f in _LATEST_FINDINGS_CACHE.values() if f.type == "coldchain")
-    val_at_risk = sum(f.metrics.get("value_at_risk_inr", 0.0) for f in _LATEST_FINDINGS_CACHE.values())
-    pending_approvals = db.query(Action).filter(Action.status == "pending_approval").count()
-    quarantined = db.query(BatchInventory).filter(BatchInventory.status == "quarantine").count()
+    # Compute or return cached KPIs (15-second TTL to avoid remote DB ping latency on every page view)
+    import time
+    now_ts = time.time()
+    if _LATEST_KPIS_CACHE is None or (now_ts - _LATEST_KPIS_TS) > 15.0:
+        open_recalls = db.query(Recall).count()
+        cold_breaches = sum(1 for f in _LATEST_FINDINGS_CACHE.values() if f.type == "coldchain")
+        val_at_risk = sum(f.metrics.get("value_at_risk_inr", 0.0) for f in _LATEST_FINDINGS_CACHE.values())
+        pending_approvals = db.query(Action).filter(Action.status == "pending_approval").count()
+        quarantined = db.query(BatchInventory).filter(BatchInventory.status == "quarantine").count()
 
-    kpi = BoardKPI(
-        open_recalls=open_recalls,
-        cold_breaches=cold_breaches,
-        value_at_risk_inr=round(val_at_risk, 2),
-        pending_approvals=pending_approvals,
-        quarantined_batches=quarantined,
-    )
+        _LATEST_KPIS_CACHE = BoardKPI(
+            open_recalls=open_recalls,
+            cold_breaches=cold_breaches,
+            value_at_risk_inr=round(val_at_risk, 2),
+            pending_approvals=pending_approvals,
+            quarantined_batches=quarantined,
+        )
+        _LATEST_KPIS_TS = now_ts
+
+    kpi = _LATEST_KPIS_CACHE
 
     return BoardResponse(
         kpis=kpi,

@@ -44,10 +44,12 @@ def tool_trace_batch(db: Session, batch: str) -> Dict[str, Any]:
 
     # Forward customers
     dispatches = db.query(Dispatch).filter(Dispatch.batch == clean_batch).all()
+    cust_ids = {d.customer_id for d in dispatches}
+    customers = {c.customer_id: c for c in db.query(Customer).filter(Customer.customer_id.in_(cust_ids)).all()} if cust_ids else {}
     cust_map = {}
     for d in dispatches:
         if d.customer_id not in cust_map:
-            c = db.query(Customer).filter(Customer.customer_id == d.customer_id).first()
+            c = customers.get(d.customer_id)
             cust_map[d.customer_id] = {
                 "customer_id": d.customer_id,
                 "name": c.name if c else d.customer_id,

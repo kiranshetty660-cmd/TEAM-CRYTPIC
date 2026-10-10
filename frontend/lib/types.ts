@@ -3,6 +3,7 @@ export type Role = "pharmacist" | "compliance" | "purchase" | "warehouse" | "aud
 export interface DemoUser {
   id: string;
   name: string;
+  email?: string;
   role: Role;
   roleTitle: string;
   avatar: string;
@@ -11,8 +12,18 @@ export interface DemoUser {
 
 export const DEMO_USERS: DemoUser[] = [
   {
+    id: "usr_owner",
+    name: "Chethan",
+    email: "chethuc809@gmail.com",
+    role: "pharmacist",
+    roleTitle: "Warehouse Owner & Principal Admin",
+    avatar: "bg-indigo-600 text-white",
+    initials: "CH",
+  },
+  {
     id: "usr_1",
     name: "Dr. Sneha Rao",
+    email: "sneha.rao@arogyapharma.in",
     role: "pharmacist",
     roleTitle: "Chief Pharmacist (Responsible Person)",
     avatar: "bg-blue-600 text-white",
@@ -424,6 +435,7 @@ export interface LedgerEntry {
   payload: Record<string, any>;
   prev_hash: string;
   hash: string;
+  curr_hash?: string;
 }
 
 export interface AnchorItem {

@@ -11,13 +11,24 @@ def detect_return_window_closing(db: Session) -> List[Finding]:
     today = settings.today
     sixty_days_ago = today - timedelta(days=60)
 
+    # Pre-fetch lookup tables to eliminate N+1 network queries
+    products = {p.sku: p for p in db.query(Product).all()}
+    suppliers = {s.sku: s for s in db.query(Supplier).all()}
+    disp_totals = {
+        (row[0], row[1]): row[2]
+        for row in db.query(Dispatch.sku, Dispatch.batch, func.sum(Dispatch.qty))
+        .filter(Dispatch.date >= sixty_days_ago)
+        .group_by(Dispatch.sku, Dispatch.batch)
+        .all()
+    }
+
     batches = db.query(BatchInventory).filter(
         BatchInventory.status == "active",
         BatchInventory.qty > 0
     ).all()
 
     for b in batches:
-        supp = db.query(Supplier).filter(Supplier.sku == b.sku).first()
+        supp = suppliers.get(b.sku)
         if not supp:
             continue
 
@@ -29,17 +40,13 @@ def detect_return_window_closing(db: Session) -> List[Finding]:
         if -2 <= days_to_window_close <= 14:
             # Check at_risk
             days_to_expiry = (b.expiry_date - today).days
-            disp_60d = db.query(func.sum(Dispatch.qty)).filter(
-                Dispatch.sku == b.sku,
-                Dispatch.batch == b.batch,
-                Dispatch.date >= sixty_days_ago
-            ).scalar() or 0
+            disp_60d = disp_totals.get((b.sku, b.batch), 0)
             velocity = round(disp_60d / 60.0, 2)
             projected_sellable = round(velocity * max(0, days_to_expiry), 1)
             at_risk = max(0, int(b.qty - projected_sellable))
 
             if at_risk > 0:
-                prod = db.query(Product).filter(Product.sku == b.sku).first()
+                prod = products.get(b.sku)
                 brand_name = prod.brand if prod else b.sku
                 credit_pct = supp.credit_pct
                 value_at_risk = round(at_risk * supp.unit_cost, 2)

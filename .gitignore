@@ -27,3 +27,4 @@ cache/
 .idea/
 *.log
 .env.example
+tracerx-agent/

@@ -33,7 +33,10 @@ def get_inventory_list(
     query = db.query(BatchInventory, Product).join(Product, BatchInventory.sku == Product.sku)
 
     if status:
-        query = query.filter(BatchInventory.status == status)
+        if status in ["quarantine", "quarantined"]:
+            query = query.filter(BatchInventory.status.in_(["quarantine", "quarantined"]))
+        else:
+            query = query.filter(BatchInventory.status == status)
     if warehouse:
         query = query.filter(BatchInventory.warehouse == warehouse)
 

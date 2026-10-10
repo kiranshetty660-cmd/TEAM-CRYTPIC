@@ -310,3 +310,160 @@ def complete_warehouse_transfer(
     )
 
     return _deserialize_transfer(transfer)
+
+
+# ---------------------------------------------------------------------------
+# Purchase Orders Endpoints
+# ---------------------------------------------------------------------------
+
+@router.get("/purchase-orders")
+def list_purchase_orders(
+    status: Optional[str] = None,
+    sku: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Lists real purchase orders from the database.
+    Supports filtering by status (draft, ordered, received) and SKU.
+    """
+    query = db.query(PurchaseOrder)
+    if status and status != "all":
+        if status == "draft":
+            query = query.filter((PurchaseOrder.draft == True) | (PurchaseOrder.status == "draft"))
+        else:
+            query = query.filter(PurchaseOrder.status == status)
+    if sku:
+        query = query.filter(PurchaseOrder.sku == sku)
+
+    pos = query.all()
+    # Serialize cleanly
+    results = []
+    for p in pos:
+        prod = db.query(Product).filter(Product.sku == p.sku).first()
+        supplier = db.query(Supplier).filter(Supplier.sku == p.sku).first()
+        prod_title = f"{prod.brand} ({prod.molecule})" if prod else p.sku
+        unit_price = supplier.unit_cost if supplier else 120.0
+        results.append({
+            "po": p.po,
+            "manufacturer": p.manufacturer,
+            "sku": p.sku,
+            "product_name": prod_title,
+            "qty": p.qty,
+            "expected_date": p.expected_date.isoformat() if p.expected_date else None,
+            "status": "draft" if p.draft else p.status,
+            "draft": bool(p.draft),
+            "estimated_cost": round(unit_price * p.qty, 2),
+        })
+    # Sort with drafts first, then alphabetically
+    results.sort(key=lambda x: (0 if x["draft"] else 1, x["po"]))
+    return {
+        "total": len(results),
+        "drafts_count": sum(1 for r in results if r["draft"]),
+        "purchase_orders": results,
+    }
+
+
+@router.post("/purchase-orders")
+def create_purchase_order(
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db)
+):
+    """
+    Creates a new draft or ordered Purchase Order.
+    """
+    po_num = payload.get("po") or f"PO-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+    sku = payload.get("sku")
+    manufacturer = payload.get("manufacturer") or "Arogya Certified Supplier"
+    qty = int(payload.get("qty", 100))
+    exp_date_str = payload.get("expected_date")
+    status = payload.get("status", "draft")
+    is_draft = payload.get("draft", status == "draft")
+
+    if not sku:
+        raise HTTPException(status_code=400, detail="Product SKU is required")
+
+    prod = db.query(Product).filter(Product.sku == sku).first()
+    if not prod:
+        raise HTTPException(status_code=404, detail=f"Product with SKU '{sku}' not found")
+
+    if exp_date_str:
+        exp_date = datetime.strptime(exp_date_str, "%Y-%m-%d").date()
+    else:
+        exp_date = (datetime.now() + date.resolution * 7).date()
+
+    existing = db.query(PurchaseOrder).filter(PurchaseOrder.po == po_num).first()
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Purchase Order '{po_num}' already exists")
+
+    new_po = PurchaseOrder(
+        po=po_num,
+        manufacturer=manufacturer,
+        sku=sku,
+        qty=qty,
+        expected_date=exp_date,
+        status=status,
+        draft=is_draft,
+    )
+    db.add(new_po)
+    db.commit()
+
+    append_ledger_event(
+        db=db,
+        event_type="PURCHASE_ORDER_CREATED",
+        payload={
+            "po": po_num,
+            "sku": sku,
+            "qty": qty,
+            "status": status,
+            "draft": is_draft,
+        },
+        ts=datetime.now(timezone.utc).isoformat(),
+        trigger_auto_anchor=False,
+    )
+
+    return {
+        "status": "created",
+        "po": po_num,
+        "sku": sku,
+        "qty": qty,
+        "draft": is_draft,
+    }
+
+
+@router.post("/purchase-orders/{po}/approve")
+def approve_purchase_order(
+    po: str,
+    approved_by: str = Query("Procurement Lead"),
+    db: Session = Depends(get_db)
+):
+    """
+    Transitions a draft Purchase Order to 'ordered' status and logs to audit ledger.
+    """
+    po_obj = db.query(PurchaseOrder).filter(PurchaseOrder.po == po).first()
+    if not po_obj:
+        raise HTTPException(status_code=404, detail=f"Purchase Order '{po}' not found")
+
+    po_obj.draft = False
+    po_obj.status = "ordered"
+    db.commit()
+
+    append_ledger_event(
+        db=db,
+        event_type="PURCHASE_ORDER_APPROVED",
+        payload={
+            "po": po,
+            "sku": po_obj.sku,
+            "qty": po_obj.qty,
+            "approved_by": approved_by,
+        },
+        ts=datetime.now(timezone.utc).isoformat(),
+        trigger_auto_anchor=True,
+    )
+
+    return {
+        "status": "ordered",
+        "po": po,
+        "approved_by": approved_by,
+        "message": f"Purchase Order {po} approved and placed with manufacturer.",
+    }
+

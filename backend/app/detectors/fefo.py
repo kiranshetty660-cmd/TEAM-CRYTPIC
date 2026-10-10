@@ -10,6 +10,15 @@ def detect_fefo_violations(db: Session) -> List[Finding]:
     today = settings.today
     fourteen_days_ago = today - timedelta(days=14)
 
+    # Pre-fetch lookup tables to eliminate N+1 network queries
+    products = {p.sku: p for p in db.query(Product).all()}
+    all_batches = db.query(BatchInventory).all()
+    batch_by_key = {(b.sku, b.batch, b.warehouse): b for b in all_batches}
+    active_by_wh_sku = {}
+    for b in all_batches:
+        if b.status == "active" and b.qty > 0:
+            active_by_wh_sku.setdefault((b.warehouse, b.sku), []).append(b)
+
     # Dispatches in last 14 days
     recent_dispatches = db.query(Dispatch).filter(
         Dispatch.date >= fourteen_days_ago
@@ -19,23 +28,16 @@ def detect_fefo_violations(db: Session) -> List[Finding]:
 
     for disp in recent_dispatches:
         # Get the dispatched batch's expiry
-        disp_batch = db.query(BatchInventory).filter(
-            BatchInventory.sku == disp.sku,
-            BatchInventory.batch == disp.batch,
-            BatchInventory.warehouse == disp.from_warehouse
-        ).first()
-
+        disp_batch = batch_by_key.get((disp.sku, disp.batch, disp.from_warehouse))
         if not disp_batch:
             continue
 
         # Look for older-expiry batches of same SKU in the same warehouse with qty > 0
-        older_batches = db.query(BatchInventory).filter(
-            BatchInventory.sku == disp.sku,
-            BatchInventory.warehouse == disp.from_warehouse,
-            BatchInventory.expiry_date < disp_batch.expiry_date,
-            BatchInventory.qty > 0,
-            BatchInventory.status == "active"
-        ).all()
+        candidate_batches = active_by_wh_sku.get((disp.from_warehouse, disp.sku), [])
+        older_batches = [
+            b for b in candidate_batches
+            if b.expiry_date < disp_batch.expiry_date
+        ]
 
         for older in older_batches:
             pair_key = (disp.sku, older.batch, disp.batch)
@@ -43,7 +45,7 @@ def detect_fefo_violations(db: Session) -> List[Finding]:
                 continue
             processed_pairs.add(pair_key)
 
-            prod = db.query(Product).filter(Product.sku == disp.sku).first()
+            prod = products.get(disp.sku)
             brand_name = prod.brand if prod else disp.sku
 
             options = [

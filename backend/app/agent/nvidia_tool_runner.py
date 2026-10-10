@@ -34,7 +34,7 @@ def run_nvidia_tool_loop(
     If NVIDIA_API_KEY is missing, API encounters 429 rate limit, network times out,
     arguments are invalid, or safety policies are violated, returns (None, trace, "DETERMINISTIC_FALLBACK").
     """
-    api_key = api_key_override or settings.NVIDIA_API_KEY
+    api_key = api_key_override if api_key_override is not None else settings.NVIDIA_API_KEY
     if not api_key:
         if tracer and run_id:
             tracer.record_event(

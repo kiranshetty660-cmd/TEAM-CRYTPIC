@@ -11,6 +11,17 @@ def detect_near_expiry(db: Session) -> List[Finding]:
     today = settings.today
     sixty_days_ago = today - timedelta(days=60)
 
+    # Pre-fetch lookup tables to eliminate N+1 network queries
+    products = {p.sku: p for p in db.query(Product).all()}
+    suppliers = {s.sku: s for s in db.query(Supplier).all()}
+    disp_totals = {
+        (row[0], row[1]): row[2]
+        for row in db.query(Dispatch.sku, Dispatch.batch, func.sum(Dispatch.qty))
+        .filter(Dispatch.date >= sixty_days_ago)
+        .group_by(Dispatch.sku, Dispatch.batch)
+        .all()
+    }
+
     # Active batches
     batches = db.query(BatchInventory).filter(
         BatchInventory.status == "active",
@@ -25,11 +36,7 @@ def detect_near_expiry(db: Session) -> List[Finding]:
             continue
 
         # Calculate 60-day velocity for this batch & SKU
-        disp_qty_60d = db.query(func.sum(Dispatch.qty)).filter(
-            Dispatch.sku == b.sku,
-            Dispatch.batch == b.batch,
-            Dispatch.date >= sixty_days_ago
-        ).scalar() or 0
+        disp_qty_60d = disp_totals.get((b.sku, b.batch), 0)
 
         velocity = round(disp_qty_60d / 60.0, 2)
         projected_sellable = round(velocity * max(0, days_to_expiry), 1)
@@ -37,8 +44,8 @@ def detect_near_expiry(db: Session) -> List[Finding]:
 
         # Flag if at_risk / qty > 0.2
         if b.qty > 0 and (at_risk / b.qty) > 0.2:
-            prod = db.query(Product).filter(Product.sku == b.sku).first()
-            supp = db.query(Supplier).filter(Supplier.sku == b.sku).first()
+            prod = products.get(b.sku)
+            supp = suppliers.get(b.sku)
 
             brand_name = prod.brand if prod else b.sku
             unit_cost = supp.unit_cost if supp else 100.0
