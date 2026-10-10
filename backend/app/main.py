@@ -71,31 +71,31 @@ def _background_startup():
         # Backfill customer contact details if unpopulated
         from app.db import SessionLocal
         from app.models import Customer
-        db = SessionLocal()
-        custs = db.query(Customer).limit(200).all()
-        needs_commit = False
-        for idx, c in enumerate(custs, start=1):
-            if not c.phone:
-                # 1 in 15 intentionally missing phone to test contact validation
-                if idx % 15 != 0:
-                    c.phone = f"+9198450{idx:05d}"
-                    needs_commit = True
-            if not c.email:
-                # 1 in 10 intentionally missing email to test contact validation
-                if idx % 10 != 0:
-                    slug = c.name.lower().replace(" ", "").replace("#", "").replace("(", "").replace(")", "")[:12]
-                    c.email = f"pharmacy.{slug}@arogyapartner.in"
-                    needs_commit = True
-        if needs_commit:
-            db.commit()
+        with SessionLocal() as db:
+            custs = db.query(Customer).limit(200).all()
+            needs_commit = False
+            for idx, c in enumerate(custs, start=1):
+                if not c.phone:
+                    # 1 in 15 intentionally missing phone to test contact validation
+                    if idx % 15 != 0:
+                        c.phone = f"+9198450{idx:05d}"
+                        needs_commit = True
+                if not c.email:
+                    # 1 in 10 intentionally missing email to test contact validation
+                    if idx % 10 != 0:
+                        slug = c.name.lower().replace(" ", "").replace("#", "").replace("(", "").replace(")", "")[:12]
+                        c.email = f"pharmacy.{slug}@arogyapartner.in"
+                        needs_commit = True
+            if needs_commit:
+                db.commit()
 
         # Recover any running campaigns on server restart
         from app.calling.campaign_worker import recover_running_campaigns
         recover_running_campaigns()
 
         from app.routers.board import execute_full_scan
-        execute_full_scan(db)
-        db.close()
+        with SessionLocal() as scan_db:
+            execute_full_scan(scan_db)
 
         # Start 3-day automated medicine expiry notification scheduler
         from app.services.expiry_scheduler import start_scheduler_thread

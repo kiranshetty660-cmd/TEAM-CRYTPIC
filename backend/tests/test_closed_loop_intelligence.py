@@ -289,7 +289,9 @@ def test_seasonal_demand_forecasting_with_sufficiency_guard():
             mfg_date=date(2025, 1, 1),
             expiry_date=date(2027, 1, 1),
         )
-        db.add_all([prod, d1, d2, b_sparse])
+        db.add(prod)
+        db.commit()
+        db.add_all([d1, d2, b_sparse])
         db.commit()
 
         # Query forecast for sparse SKU
