@@ -142,11 +142,13 @@ def detect_recalls(db: Session) -> List[Finding]:
         if any(w["warehouse"] == "UNASSIGNED" for w in wh_locations):
             data_quality_warnings.append("Inventory exists in an UNASSIGNED warehouse location.")
 
+        r_class_clean = rec.recall_class if str(rec.recall_class).lower().startswith("class") else f"Class {rec.recall_class}"
+        clean_rec_id = rec.id if rec.id.startswith("REC-") else f"REC-{rec.id}"
         findings.append(Finding(
-            id=f"FIND-REC-{rec.id}",
+            id=f"FIND-{clean_rec_id}",
             type="recall",
             severity=base_sev,
-            title=f"Class {rec.recall_class} Recall: {brand_name} ({', '.join(batch_list)})",
+            title=f"{r_class_clean} Recall: {brand_name} ({', '.join(batch_list)})",
             description=f"Official regulatory recall for {brand_name}. {stock_in_wh} units in warehouse, {dispatched_total} units dispatched in last 30d across {len(customer_list)} accounts.",
             entities={
                 "sku": rec.sku,

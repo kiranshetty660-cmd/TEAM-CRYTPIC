@@ -4,7 +4,7 @@ from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app.db import get_db
-from app.models import Case, Action, BatchInventory
+from app.models import Case, Action, BatchInventory, Recall
 from app.schemas import CaseSchema, CaseVerificationRequest, CaseCloseRequest, CaseReopenRequest, Finding
 from app.ledger.chain import append_ledger_event
 from app.routers.board import _LATEST_FINDINGS_CACHE, execute_full_scan
@@ -12,7 +12,7 @@ from app.engine.root_cause import investigate_root_cause
 
 router = APIRouter(prefix="/api/cases", tags=["Closed-Loop Cases"])
 
-def _deserialize_case(c: Case) -> CaseSchema:
+def _deserialize_case(c: Case, db: Optional[Session] = None) -> CaseSchema:
     global _LATEST_FINDINGS_CACHE
     batch_val = None
     sku_val = None
@@ -21,6 +21,19 @@ def _deserialize_case(c: Case) -> CaseSchema:
         if f.entities:
             batch_val = f.entities.get("batch") or (f.entities.get("batches", [None])[0] if isinstance(f.entities.get("batches"), list) else None)
             sku_val = f.entities.get("sku")
+
+    # Resilient resolution from database if cache is cold or entity is not in cache
+    if db and (not batch_val or not sku_val):
+        if c.type == "recall" or (c.finding_id and "REC" in c.finding_id):
+            clean_rec_id = c.finding_id.replace("FIND-REC-REC-", "REC-").replace("FIND-REC-", "").replace("FIND-", "") if c.finding_id else ""
+            rec = db.query(Recall).filter((Recall.id == clean_rec_id) | (Recall.id == f"REC-{clean_rec_id}")).first()
+            if rec:
+                sku_val = sku_val or rec.sku
+                try:
+                    batches = json.loads(rec.batches) if isinstance(rec.batches, str) else rec.batches
+                    batch_val = batch_val or (batches[0] if isinstance(batches, list) and batches else str(batches))
+                except Exception:
+                    batch_val = batch_val or str(rec.batches)
 
     rc = json.loads(c.root_cause_analysis) if c.root_cause_analysis else None
     if rc and isinstance(rc, dict):
@@ -74,21 +87,21 @@ def list_cases(
 ):
     """
     Returns persistent closed-loop compliance cases.
-    Auto-syncs from recent scan findings if case table is empty.
+    Auto-syncs from recent scan findings if case table is empty or missing findings.
     """
-    if db.query(Case).count() == 0:
-        sync_cases_from_findings(db)
+    # Always ensure cases are synced with active compliance findings
+    sync_cases_from_findings(db)
 
     query = db.query(Case)
-    if status:
+    if isinstance(status, str) and status:
         query = query.filter(Case.status == status)
-    if verification_state:
+    if isinstance(verification_state, str) and verification_state:
         query = query.filter(Case.verification_state == verification_state)
-    if finding_type:
+    if isinstance(finding_type, str) and finding_type:
         query = query.filter(Case.type == finding_type)
 
     cases = query.order_by(Case.severity.desc(), Case.created_at.desc()).all()
-    return [_deserialize_case(c) for c in cases]
+    return [_deserialize_case(c, db) for c in cases]
 
 @router.post("/sync")
 def sync_cases_from_findings(db: Session = Depends(get_db)):
@@ -97,15 +110,22 @@ def sync_cases_from_findings(db: Session = Depends(get_db)):
     a persistent, auditable case lifecycle without duplicate creation.
     """
     global _LATEST_FINDINGS_CACHE
-    if not _LATEST_FINDINGS_CACHE:
+    cached_recall_findings = sum(1 for f in _LATEST_FINDINGS_CACHE.values() if f.type == "recall")
+    db_recalls = db.query(Recall).count()
+    if not _LATEST_FINDINGS_CACHE or cached_recall_findings < db_recalls:
         execute_full_scan(db)
 
     created_count = 0
     now = datetime.now(timezone.utc)
 
     for finding_id, f in _LATEST_FINDINGS_CACHE.items():
-        case_id = f"CASE-{finding_id.replace('FIND-', '')}"
-        existing = db.query(Case).filter(Case.id == case_id).first()
+        clean_finding_suffix = finding_id.replace('FIND-', '')
+        if clean_finding_suffix.startswith("REC-REC-"):
+            clean_finding_suffix = clean_finding_suffix.replace("REC-REC-", "REC-")
+        case_id = f"CASE-{clean_finding_suffix}"
+        raw_case_id = f"CASE-{finding_id.replace('FIND-', '')}"
+
+        existing = db.query(Case).filter((Case.id == case_id) | (Case.id == raw_case_id)).first()
         if not existing:
             # Run initial root cause investigation
             rc = investigate_root_cause(f, db)
@@ -139,6 +159,12 @@ def sync_cases_from_findings(db: Session = Depends(get_db)):
                 ts=now.isoformat(),
                 trigger_auto_anchor=False,
             )
+        else:
+            # Ensure type and title are kept in sync with detector
+            if f.type == "recall" and (existing.type != "recall" or "Class Class" in (existing.title or "")):
+                existing.type = "recall"
+                existing.title = f.title
+                existing.finding_id = finding_id
 
     db.commit()
     return {"status": "synced", "cases_created": created_count, "total_cases": db.query(Case).count()}
@@ -151,7 +177,7 @@ def get_case_by_id(id: str, db: Session = Depends(get_db)):
     case = db.query(Case).filter(Case.id == id).first()
     if not case:
         raise HTTPException(status_code=404, detail=f"Case '{id}' not found")
-    return _deserialize_case(case)
+    return _deserialize_case(case, db)
 
 @router.post("/{id}/verify", response_model=CaseSchema)
 def verify_case(id: str, req: CaseVerificationRequest, db: Session = Depends(get_db)):

@@ -31,6 +31,7 @@ export default function CasesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [typeFilter, setTypeFilter] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -78,13 +79,18 @@ export default function CasesPage() {
   };
 
   const filteredCases = cases.filter((c) => {
+    if (typeFilter) {
+      if (typeFilter === "recall" && !(c.type === "recall" || c.id.includes("REC"))) return false;
+      if (typeFilter !== "recall" && c.type !== typeFilter) return false;
+    }
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
       c.id.toLowerCase().includes(q) ||
       (c.title && c.title.toLowerCase().includes(q)) ||
       (c.batch_id && c.batch_id.toLowerCase().includes(q)) ||
-      (c.sku && c.sku.toLowerCase().includes(q))
+      (c.sku && c.sku.toLowerCase().includes(q)) ||
+      (c.type && c.type.toLowerCase().includes(q))
     );
   });
 
@@ -153,17 +159,17 @@ export default function CasesPage() {
           <p className="text-[11px] text-amber-700 mt-1 font-medium">Needs officer verification</p>
         </Card>
 
-        <Card className="p-4 bg-indigo-50/40 border border-indigo-200 hover:border-indigo-300 hover:bg-indigo-50/70 hover:shadow-xs transition">
+        <Card className="p-4 bg-rose-50/40 border border-rose-200 hover:border-rose-300 hover:bg-rose-50/70 hover:shadow-xs transition">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-indigo-800">Verified Recalls</span>
-            <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center">
-              <ShieldCheck className="w-4 h-4" />
+            <span className="text-xs font-bold uppercase tracking-wider text-rose-800">Regulatory Recalls</span>
+            <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center">
+              <ShieldAlert className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-extrabold text-indigo-950 mt-2">
-            {cases.filter((c) => c.verification_status === "verified").length}
+          <div className="text-2xl font-extrabold text-rose-950 mt-2">
+            {cases.filter((c) => c.type === "recall" || c.id.includes("REC")).length}
           </div>
-          <p className="text-[11px] text-indigo-700 mt-1 font-medium">Confirmed safety incidents</p>
+          <p className="text-[11px] text-rose-700 mt-1 font-medium">Critical mandatory actions</p>
         </Card>
 
         <Card className="p-4 bg-emerald-50/40 border border-emerald-200 hover:border-emerald-300 hover:bg-emerald-50/70 hover:shadow-xs transition">
@@ -193,8 +199,22 @@ export default function CasesPage() {
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Filter className="w-4 h-4 text-slate-400 shrink-0" />
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="text-xs sm:text-sm py-1.5 px-3 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 min-h-[38px]"
+          >
+            <option value="">All Incident Types</option>
+            <option value="recall">🚨 Regulatory Recalls</option>
+            <option value="coldchain">❄️ Cold Chain Excursions</option>
+            <option value="critical">⚠️ Critical Shortages</option>
+            <option value="expiry">⏳ Near-Expiry Risks</option>
+            <option value="returnwindow">🔄 Return Window Closing</option>
+            <option value="fefo">📦 FEFO Violations</option>
+          </select>
+
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -237,22 +257,35 @@ export default function CasesPage() {
             </tr>
           </TableHeader>
           <TableBody>
-            {filteredCases.map((c) => (
-              <TableRow key={c.id}>
+            {filteredCases.map((c) => {
+              const isRecall = c.type === "recall" || c.id.includes("REC");
+              return (
+              <TableRow key={c.id} className={isRecall ? "bg-rose-50/20 hover:bg-rose-50/40" : ""}>
                 <TableCell className="font-mono text-xs font-semibold text-slate-900">
-                  {c.id}
+                  <div className="flex items-center gap-1.5">
+                    {c.id}
+                  </div>
                 </TableCell>
                 <TableCell>
-                  <div className="font-semibold text-slate-900 text-xs sm:text-sm">{c.title || "Quality Incident"}</div>
-                  <div className="text-[11px] text-slate-500">Linked Finding: {c.finding_id}</div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-slate-900 text-xs sm:text-sm">{c.title || "Quality Incident"}</span>
+                    {isRecall && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-300">
+                        Recall Notice
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">Linked Finding: {c.finding_id}</div>
                 </TableCell>
                 <TableCell>
                   <div className="text-xs font-mono font-semibold text-slate-900">{c.batch_id || "—"}</div>
-                  <div className="mt-0.5">
-                    <span className="text-[11px] font-mono text-blue-700 font-medium bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 inline-block">
-                      {c.sku}
-                    </span>
-                  </div>
+                  {c.sku ? (
+                    <div className="mt-0.5">
+                      <span className="text-[11px] font-mono text-blue-700 font-medium bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 inline-block">
+                        {c.sku}
+                      </span>
+                    </div>
+                  ) : null}
                 </TableCell>
                 <TableCell>
                   <Badge variant={c.status === "closed" ? "success" : c.status === "detected" ? "danger" : "warning"} size="sm">
@@ -274,6 +307,17 @@ export default function CasesPage() {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1.5">
+                    {isRecall && (
+                      <Link href="/recall-demo">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-rose-200 text-rose-700 hover:bg-rose-50 text-xs"
+                        >
+                          Workflow
+                        </Button>
+                      </Link>
+                    )}
                     {c.verification_status !== "verified" && (
                       <Button
                         size="sm"
@@ -297,7 +341,8 @@ export default function CasesPage() {
                   </div>
                 </TableCell>
               </TableRow>
-            ))}
+            );
+            })}
           </TableBody>
         </Table>
       )}
