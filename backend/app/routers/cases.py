@@ -189,22 +189,25 @@ def verify_case(id: str, req: CaseVerificationRequest, db: Session = Depends(get
     if not case:
         raise HTTPException(status_code=404, detail=f"Case '{id}' not found")
 
-    valid_states = ["verified", "disputed", "false_positive", "duplicate"]
-    if req.verification_state not in valid_states:
-        raise HTTPException(status_code=400, detail=f"Invalid verification state. Must be one of: {valid_states}")
+    target_state = req.verification_state or req.verification_status or "verified"
+    valid_states = ["verified", "disputed", "false_positive", "duplicate", "unverified"]
+    if target_state not in valid_states:
+        raise HTTPException(status_code=400, detail=f"Invalid verification state '{target_state}'. Must be one of: {valid_states}")
 
     now = datetime.now(timezone.utc)
-    case.verification_state = req.verification_state
+    case.verification_state = target_state
     case.verification_reason = req.reason
     case.verified_by = req.verified_by
     case.verified_at = now
     case.updated_at = now
 
-    if req.verification_state == "verified":
+    if target_state == "verified":
         case.status = "investigating"
-    elif req.verification_state in ["false_positive", "duplicate"]:
+    elif target_state == "disputed":
+        case.status = "disputed"
+    elif target_state in ["false_positive", "duplicate"]:
         case.status = "closed"
-        case.closure_reason = f"Closed as {req.verification_state}: {req.reason}"
+        case.closure_reason = f"Closed as {target_state}: {req.reason}"
         case.closed_at = now
         case.closed_by = req.verified_by
 
@@ -222,7 +225,7 @@ def verify_case(id: str, req: CaseVerificationRequest, db: Session = Depends(get
         event_type="CASE_VERIFIED",
         payload={
             "case_id": case.id,
-            "verification_state": req.verification_state,
+            "verification_state": target_state,
             "verified_by": req.verified_by,
             "reason": req.reason,
             "new_status": case.status,
@@ -231,7 +234,7 @@ def verify_case(id: str, req: CaseVerificationRequest, db: Session = Depends(get
         trigger_auto_anchor=True,
     )
 
-    return _deserialize_case(case)
+    return _deserialize_case(case, db)
 
 @router.post("/{id}/investigate", response_model=CaseSchema)
 def run_investigation(id: str, db: Session = Depends(get_db)):

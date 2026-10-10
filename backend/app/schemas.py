@@ -1,6 +1,6 @@
 from datetime import date as dt_date, datetime as dt_datetime
 from typing import List, Optional, Any, Dict
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 # Base & Entities
 class ProductSchema(BaseModel):
@@ -245,10 +245,20 @@ class CaseSchema(BaseModel):
     updated_at: str
 
 class CaseVerificationRequest(BaseModel):
-    verification_state: str  # verified, disputed, false_positive, duplicate
-    reason: str
-    verified_by: str
+    verification_state: Optional[str] = None  # verified, disputed, false_positive, duplicate, unverified
+    verification_status: Optional[str] = None
+    reason: str = "Operator verification update"
+    verified_by: str = "Compliance Officer"
     evidence_notes: Optional[str] = None
+
+    @model_validator(mode="after")
+    def populate_state(self):
+        if not self.verification_state and self.verification_status:
+            self.verification_state = self.verification_status
+        elif not self.verification_status and self.verification_state:
+            self.verification_status = self.verification_state
+        return self
+
 
 class CaseCloseRequest(BaseModel):
     reason: str

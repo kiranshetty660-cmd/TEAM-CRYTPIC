@@ -215,51 +215,98 @@ export default function BatchTracePage() {
               <Boxes className="w-4 h-4 text-sky-600" />
               Current Warehouse Stock Locations
             </h2>
-            <Table>
-              <TableHeader>
-                <tr>
-                  <TableHead>Warehouse</TableHead>
-                  <TableHead>Zone / Cold Room</TableHead>
-                  <TableHead>Available Units</TableHead>
-                  <TableHead>Manufacture Date</TableHead>
-                  <TableHead>Expiry Date</TableHead>
-                  <TableHead>Current Status</TableHead>
-                </tr>
-              </TableHeader>
-              <TableBody>
-                {trace.current_locations.length === 0 ? (
-                  <TableRow>
-                    <TableCell className="text-slate-400 italic" colSpan={6}>
-                      No stock currently in warehouse (all units dispatched or returned).
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  trace.current_locations.map((loc, i) => (
-                    <TableRow key={i}>
-                      <TableCell className="font-bold text-slate-900">{loc.warehouse}</TableCell>
-                      <TableCell>{loc.cold_room || "Ambient Shelves"}</TableCell>
-                      <TableCell className="font-mono font-bold text-slate-900">{loc.qty}</TableCell>
-                      <TableCell className="text-xs text-slate-600">{loc.mfg_date}</TableCell>
-                      <TableCell className="text-xs text-slate-600">{loc.expiry_date}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            loc.status === "active"
-                              ? "success"
-                              : loc.status === "quarantine"
-                              ? "warning"
-                              : "danger"
-                          }
-                          size="sm"
-                        >
-                          {loc.status.toUpperCase()}
-                        </Badge>
+
+            {/* Mobile View: Warehouse Stock Cards */}
+            <div className="md:hidden space-y-2.5">
+              {trace.current_locations.length === 0 ? (
+                <div className="p-4 bg-slate-50 rounded-xl text-center text-xs text-slate-500 italic">
+                  No stock currently in warehouse.
+                </div>
+              ) : (
+                trace.current_locations.map((loc, i) => (
+                  <div key={i} className="p-3.5 bg-white border border-slate-200 rounded-xl shadow-2xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-900 text-xs">{loc.warehouse}</span>
+                      <Badge
+                        variant={
+                          loc.status === "active"
+                            ? "success"
+                            : loc.status === "quarantine"
+                            ? "warning"
+                            : "danger"
+                        }
+                        size="sm"
+                      >
+                        {loc.status.toUpperCase()}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center text-xs pt-1">
+                      <div className="bg-slate-50 p-1.5 rounded-lg">
+                        <span className="text-[10px] text-slate-500 block uppercase">Zone</span>
+                        <span className="font-medium text-slate-800 text-[11px] truncate block">{loc.cold_room || "Ambient"}</span>
+                      </div>
+                      <div className="bg-slate-50 p-1.5 rounded-lg">
+                        <span className="text-[10px] text-slate-500 block uppercase">Quantity</span>
+                        <span className="font-mono font-bold text-slate-900">{loc.qty}</span>
+                      </div>
+                      <div className="bg-slate-50 p-1.5 rounded-lg">
+                        <span className="text-[10px] text-slate-500 block uppercase">Expiry</span>
+                        <span className="text-[11px] font-medium text-slate-700">{loc.expiry_date}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Desktop Table: Warehouse Stock */}
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <tr>
+                    <TableHead>Warehouse</TableHead>
+                    <TableHead>Zone / Cold Room</TableHead>
+                    <TableHead>Available Units</TableHead>
+                    <TableHead>Manufacture Date</TableHead>
+                    <TableHead>Expiry Date</TableHead>
+                    <TableHead>Current Status</TableHead>
+                  </tr>
+                </TableHeader>
+                <TableBody>
+                  {trace.current_locations.length === 0 ? (
+                    <TableRow>
+                      <TableCell className="text-slate-400 italic" colSpan={6}>
+                        No stock currently in warehouse (all units dispatched or returned).
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    trace.current_locations.map((loc, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="font-bold text-slate-900">{loc.warehouse}</TableCell>
+                        <TableCell>{loc.cold_room || "Ambient Shelves"}</TableCell>
+                        <TableCell className="font-mono font-bold text-slate-900">{loc.qty}</TableCell>
+                        <TableCell className="text-xs text-slate-600">{loc.mfg_date}</TableCell>
+                        <TableCell className="text-xs text-slate-600">{loc.expiry_date}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              loc.status === "active"
+                                ? "success"
+                                : loc.status === "quarantine"
+                                ? "warning"
+                                : "danger"
+                            }
+                            size="sm"
+                          >
+                            {loc.status.toUpperCase()}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
 
           {/* Forward Customer Distribution (Hospitals First) */}
@@ -272,44 +319,97 @@ export default function BatchTracePage() {
               <span className="text-xs text-blue-700 font-medium">Hospitals prioritized at the top of the list</span>
             </div>
 
-            <Table>
-              <TableHeader>
-                <tr>
-                  <TableHead>Account Name</TableHead>
-                  <TableHead>Account Type</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Units Received</TableHead>
-                  <TableHead>Dispatches</TableHead>
-                  <TableHead>Last Dispatch Date</TableHead>
-                </tr>
-              </TableHeader>
-              <TableBody>
-                {trace.forward_customers.map((c) => (
-                  <TableRow
-                    key={c.customer_id}
-                    className={c.type === "hospital" ? "bg-blue-50/30 font-medium" : ""}
-                  >
-                    <TableCell className="text-slate-900 flex items-center gap-2">
+            {/* Mobile View: Customer Cards for Touchscreens */}
+            <div className="md:hidden space-y-2.5">
+              {trace.forward_customers.map((c) => (
+                <div
+                  key={c.customer_id}
+                  className={`p-3.5 rounded-xl border transition ${
+                    c.type === "hospital"
+                      ? "bg-blue-50/50 border-blue-200 shadow-xs"
+                      : "bg-white border-slate-200 shadow-2xs"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       {c.type === "hospital" ? (
-                        <Hospital className="w-4 h-4 text-blue-600 shrink-0" />
+                        <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                          <Hospital className="w-4 h-4" />
+                        </div>
                       ) : (
-                        <Store className="w-4 h-4 text-slate-400 shrink-0" />
+                        <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
+                          <Store className="w-4 h-4" />
+                        </div>
                       )}
-                      <span>{c.name}</span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={c.type === "hospital" ? "indigo" : "neutral"} size="sm">
-                        {c.type === "hospital" ? "HOSPITAL (HIGH PRIORITY)" : "PHARMACY"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs text-slate-600">{c.location}</TableCell>
-                    <TableCell className="font-mono font-bold text-slate-900">{c.dispatched_qty}</TableCell>
-                    <TableCell className="text-xs text-slate-600">{c.dispatches_count}</TableCell>
-                    <TableCell className="text-xs text-slate-600">{c.last_dispatch_date}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                      <div className="min-w-0">
+                        <h4 className="text-xs font-bold text-slate-900 truncate">{c.name}</h4>
+                        <p className="text-[11px] text-slate-500">{c.location}</p>
+                      </div>
+                    </div>
+                    <Badge variant={c.type === "hospital" ? "indigo" : "neutral"} size="sm">
+                      {c.type === "hospital" ? "HOSPITAL" : "PHARMACY"}
+                    </Badge>
+                  </div>
+
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 grid grid-cols-3 gap-2 text-center text-xs">
+                    <div className="bg-slate-50/80 p-1.5 rounded-lg">
+                      <span className="text-[10px] text-slate-500 block uppercase font-medium">Quantity</span>
+                      <span className="font-mono font-bold text-slate-900 text-sm">{c.dispatched_qty}</span>
+                    </div>
+                    <div className="bg-slate-50/80 p-1.5 rounded-lg">
+                      <span className="text-[10px] text-slate-500 block uppercase font-medium">Shipments</span>
+                      <span className="font-bold text-slate-700">{c.dispatches_count}</span>
+                    </div>
+                    <div className="bg-slate-50/80 p-1.5 rounded-lg">
+                      <span className="text-[10px] text-slate-500 block uppercase font-medium">Dispatched</span>
+                      <span className="text-[11px] font-medium text-slate-600">{c.last_dispatch_date}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table: Forward Customers */}
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <tr>
+                    <TableHead>Account Name</TableHead>
+                    <TableHead>Account Type</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead>Units Received</TableHead>
+                    <TableHead>Dispatches</TableHead>
+                    <TableHead>Last Dispatch Date</TableHead>
+                  </tr>
+                </TableHeader>
+                <TableBody>
+                  {trace.forward_customers.map((c) => (
+                    <TableRow
+                      key={c.customer_id}
+                      className={c.type === "hospital" ? "bg-blue-50/30 font-medium" : ""}
+                    >
+                      <TableCell className="text-slate-900 flex items-center gap-2">
+                        {c.type === "hospital" ? (
+                          <Hospital className="w-4 h-4 text-blue-600 shrink-0" />
+                        ) : (
+                          <Store className="w-4 h-4 text-slate-400 shrink-0" />
+                        )}
+                        <span>{c.name}</span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={c.type === "hospital" ? "indigo" : "neutral"} size="sm">
+                          {c.type === "hospital" ? "HOSPITAL (HIGH PRIORITY)" : "PHARMACY"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-600">{c.location}</TableCell>
+                      <TableCell className="font-mono font-bold text-slate-900">{c.dispatched_qty}</TableCell>
+                      <TableCell className="text-xs text-slate-600">{c.dispatches_count}</TableCell>
+                      <TableCell className="text-xs text-slate-600">{c.last_dispatch_date}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
 
           {/* Backward Manufacturer Details */}

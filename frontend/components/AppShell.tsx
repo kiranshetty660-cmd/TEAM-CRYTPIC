@@ -340,7 +340,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </button>
 
               {userDropdown && (
-                <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50 animate-in fade-in duration-150">
+                <div className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-1.5rem)] bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50 animate-in fade-in duration-150 max-h-[80vh] overflow-y-auto">
                   <div className="px-3 py-2 border-b border-slate-100 mb-1">
                     <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
                       Demo Persona Switcher
@@ -379,9 +379,75 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Page Content Viewport */}
-        <main className="flex-1 bg-white p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 bg-white p-3.5 sm:p-6 lg:p-8 pb-24 md:pb-8 max-w-7xl w-full mx-auto overflow-x-hidden">
           {children}
         </main>
+
+        {/* Mobile Bottom Navigation Bar (Phone Screens < 768px, ~390px) */}
+        <nav
+          className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 md:hidden flex items-center justify-around h-16 px-1 shadow-lg"
+          aria-label="Mobile Bottom Navigation"
+        >
+          <Link
+            href="/"
+            className={`flex flex-col items-center justify-center flex-1 h-full py-1 text-center min-w-[56px] transition ${
+              pathname === "/" ? "text-blue-600 font-bold" : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <div className={`p-1 rounded-lg ${pathname === "/" ? "bg-blue-50" : ""}`}>
+              <LayoutDashboard className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] leading-tight tracking-tight mt-0.5">Home</span>
+          </Link>
+
+          <Link
+            href="/recall-demo"
+            className={`flex flex-col items-center justify-center flex-1 h-full py-1 text-center min-w-[56px] relative transition ${
+              pathname === "/recall-demo" ? "text-rose-700 font-bold" : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <div className={`p-1 rounded-lg ${pathname === "/recall-demo" ? "bg-rose-50" : ""}`}>
+              <FlaskConical className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] leading-tight tracking-tight mt-0.5">B2231 Demo</span>
+            <span className="absolute top-2 right-1/4 w-2 h-2 rounded-full bg-rose-600 animate-pulse" />
+          </Link>
+
+          <Link
+            href="/cases"
+            className={`flex flex-col items-center justify-center flex-1 h-full py-1 text-center min-w-[56px] transition ${
+              pathname === "/cases" ? "text-blue-600 font-bold" : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <div className={`p-1 rounded-lg ${pathname === "/cases" ? "bg-blue-50" : ""}`}>
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] leading-tight tracking-tight mt-0.5">Cases</span>
+          </Link>
+
+          <Link
+            href="/approvals"
+            className={`flex flex-col items-center justify-center flex-1 h-full py-1 text-center min-w-[56px] transition ${
+              pathname === "/approvals" ? "text-blue-600 font-bold" : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <div className={`p-1 rounded-lg ${pathname === "/approvals" ? "bg-blue-50" : ""}`}>
+              <CheckSquare className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] leading-tight tracking-tight mt-0.5">Approvals</span>
+          </Link>
+
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="flex flex-col items-center justify-center flex-1 h-full py-1 text-center min-w-[56px] text-slate-500 hover:text-slate-800 transition"
+            aria-label="Open more navigation menu"
+          >
+            <div className="p-1 rounded-lg">
+              <Menu className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] leading-tight tracking-tight mt-0.5">Menu</span>
+          </button>
+        </nav>
       </div>
     </div>
   );

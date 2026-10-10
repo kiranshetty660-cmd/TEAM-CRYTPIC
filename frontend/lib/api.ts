@@ -17,6 +17,30 @@ import {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+function formatErrorMessage(detail: any, defaultMsg = "Request failed"): string {
+  if (!detail) return defaultMsg;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const msgs = detail
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (item?.msg) {
+          const loc = Array.isArray(item.loc)
+            ? item.loc.filter((l: any) => l !== "body").join(".")
+            : "";
+          return loc ? `${loc}: ${item.msg}` : item.msg;
+        }
+        return JSON.stringify(item);
+      })
+      .filter(Boolean);
+    return msgs.length > 0 ? msgs.join("; ") : defaultMsg;
+  }
+  if (typeof detail === "object") {
+    return detail.message || detail.msg || (detail.detail ? formatErrorMessage(detail.detail, defaultMsg) : JSON.stringify(detail));
+  }
+  return String(detail);
+}
+
 async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}${path}`;
   const res = await fetch(url, {
@@ -32,7 +56,7 @@ async function fetchJson<T>(path: string, options?: RequestInit): Promise<T> {
     let errMsg = `Request failed: ${res.statusText}`;
     try {
       const errBody = await res.json();
-      errMsg = errBody.detail || errMsg;
+      errMsg = formatErrorMessage(errBody.detail || errBody.message || errBody, errMsg);
     } catch (_) {}
     throw new Error(errMsg);
   }
@@ -95,7 +119,7 @@ export const api = {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: "Upload failed" }));
-      throw new Error(err.detail || "Upload failed");
+      throw new Error(formatErrorMessage(err.detail || err.message || err, "Upload failed"));
     }
     return res.json();
   },
@@ -110,7 +134,7 @@ export const api = {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: "Profiling failed" }));
-      throw new Error(err.detail || "Profiling failed");
+      throw new Error(formatErrorMessage(err.detail || err.message || err, "Profiling failed"));
     }
     return res.json();
   },
@@ -126,7 +150,7 @@ export const api = {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: "Validation failed" }));
-      throw new Error(err.detail || "Validation failed");
+      throw new Error(formatErrorMessage(err.detail || err.message || err, "Validation failed"));
     }
     return res.json();
   },
@@ -141,7 +165,7 @@ export const api = {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: "Commit failed" }));
-      throw new Error(err.detail || "Commit failed");
+      throw new Error(formatErrorMessage(err.detail || err.message || err, "Commit failed"));
     }
     return res.json();
   },
@@ -156,7 +180,7 @@ export const api = {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: "Rollback failed" }));
-      throw new Error(err.detail || "Rollback failed");
+      throw new Error(formatErrorMessage(err.detail || err.message || err, "Rollback failed"));
     }
     return res.json();
   },
@@ -184,7 +208,12 @@ export const api = {
   verifyCase: (id: string, verification_status: string, reason: string, verified_by: string) =>
     fetchJson<Case>(`/api/cases/${id}/verify`, {
       method: "POST",
-      body: JSON.stringify({ verification_status, reason, verified_by }),
+      body: JSON.stringify({
+        verification_state: verification_status,
+        verification_status,
+        reason,
+        verified_by,
+      }),
     }),
   investigateCase: (id: string) =>
     fetchJson<Case>(`/api/cases/${id}/investigate`, { method: "POST" }),

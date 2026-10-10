@@ -476,11 +476,11 @@ export default function RecallDemoPage() {
           </div>
 
           {/* Main Action Buttons */}
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5 w-full sm:w-auto shrink-0">
             <button
               onClick={handleRunAutonomousAgents}
               disabled={autonomousRunning || loading || uploadingCsv}
-              className="px-5 py-3 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition disabled:opacity-50 min-h-[42px]"
+              className="px-5 py-3 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition disabled:opacity-50 min-h-[44px]"
             >
               <Zap className={`w-4 h-4 ${autonomousRunning ? "animate-spin" : ""}`} />
               <span>{autonomousRunning ? "Agents Operating..." : "Run 10 Autonomous Agents"}</span>
@@ -488,7 +488,7 @@ export default function RecallDemoPage() {
 
             <button
               onClick={() => setActiveTabMode("expiry_testing")}
-              className="px-4 py-3 rounded-xl bg-white hover:bg-slate-50 text-teal-800 border border-teal-300 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition min-h-[42px]"
+              className="px-4 py-3 rounded-xl bg-white hover:bg-slate-50 text-teal-800 border border-teal-300 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition min-h-[44px]"
             >
               <Upload className="w-4 h-4 text-teal-700" />
               <span>Test Expired CSV</span>
@@ -497,7 +497,7 @@ export default function RecallDemoPage() {
             <button
               onClick={handleResetScenario}
               disabled={resetting || autonomousRunning}
-              className="px-4 py-3 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition disabled:opacity-50 min-h-[42px]"
+              className="px-4 py-3 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition disabled:opacity-50 min-h-[44px]"
               title="Reset scenario to beginning"
             >
               <RotateCcw className={`w-4 h-4 ${resetting ? "animate-spin" : ""}`} />
@@ -625,10 +625,10 @@ export default function RecallDemoPage() {
       {/* VIEW NAVIGATION SWITCHER */}
       {/* ------------------------------------------------------------- */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 pb-3 gap-3">
-        <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-50 border border-slate-200 rounded-xl w-fit">
+        <div className="flex overflow-x-auto no-scrollbar items-center gap-1.5 p-1 bg-slate-50 border border-slate-200 rounded-xl w-full sm:w-fit">
           <button
             onClick={() => setActiveTabMode("control_room")}
-            className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-2 transition min-h-[36px] ${
+            className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-2 transition shrink-0 min-h-[38px] ${
               activeTabMode === "control_room"
                 ? "bg-teal-700 text-white shadow-xs"
                 : "text-slate-600 hover:text-slate-900 hover:bg-white"
@@ -645,7 +645,7 @@ export default function RecallDemoPage() {
 
           <button
             onClick={() => setActiveTabMode("expiry_testing")}
-            className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-2 transition min-h-[36px] ${
+            className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-2 transition shrink-0 min-h-[38px] ${
               activeTabMode === "expiry_testing"
                 ? "bg-teal-700 text-white shadow-xs"
                 : "text-slate-600 hover:text-slate-900 hover:bg-white"
@@ -664,7 +664,7 @@ export default function RecallDemoPage() {
 
           <button
             onClick={() => setActiveTabMode("step_by_step")}
-            className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-2 transition min-h-[36px] ${
+            className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-2 transition shrink-0 min-h-[38px] ${
               activeTabMode === "step_by_step"
                 ? "bg-teal-700 text-white shadow-xs"
                 : "text-slate-600 hover:text-slate-900 hover:bg-white"
@@ -676,7 +676,7 @@ export default function RecallDemoPage() {
 
           <button
             onClick={() => setActiveTabMode("executive_report")}
-            className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-2 transition min-h-[36px] ${
+            className={`px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-2 transition shrink-0 min-h-[38px] ${
               activeTabMode === "executive_report"
                 ? "bg-teal-700 text-white shadow-xs"
                 : "text-slate-600 hover:text-slate-900 hover:bg-white"
@@ -1062,7 +1062,7 @@ export default function RecallDemoPage() {
       {activeTabMode === "step_by_step" && (
         <div className="space-y-6">
           {/* Step Pill Selector */}
-          <div className="flex flex-wrap items-center gap-2 p-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+          <div className="flex overflow-x-auto no-scrollbar items-center gap-1.5 p-1.5 bg-slate-50 border border-slate-200 rounded-xl w-full">
             {[
               { num: 1, label: "1. Trigger Recall" },
               { num: 2, label: "2. Block Warehouse" },
@@ -1077,7 +1077,7 @@ export default function RecallDemoPage() {
               <button
                 key={st.num}
                 onClick={() => setActiveStep(st.num)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition min-h-[34px] ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition shrink-0 min-h-[36px] ${
                   activeStep === st.num
                     ? "bg-teal-700 text-white shadow-xs"
                     : "text-slate-600 hover:text-slate-900 hover:bg-white"
@@ -1336,8 +1336,8 @@ export default function RecallDemoPage() {
       {/* DEVICE ALERT SIMULATOR MODAL */}
       {/* ------------------------------------------------------------- */}
       {selectedAlertModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-2xl p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 sm:p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div>
                 <h3 className="text-base font-bold text-slate-900">Delivered Alert Preview</h3>
@@ -1345,7 +1345,7 @@ export default function RecallDemoPage() {
               </div>
               <button
                 onClick={() => setSelectedAlertModal(null)}
-                className="text-xs px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700"
+                className="text-xs px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 min-h-[36px]"
               >
                 Close
               </button>
@@ -1354,16 +1354,16 @@ export default function RecallDemoPage() {
             <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
               <button
                 onClick={() => setAlertViewChannel("email")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
-                  alertViewChannel === "email" ? "bg-teal-700 text-white" : "bg-slate-100 text-slate-600"
+                className={`px-3.5 py-2 rounded-lg text-xs font-semibold min-h-[40px] ${
+                  alertViewChannel === "email" ? "bg-teal-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 }`}
               >
                 Email Message
               </button>
               <button
                 onClick={() => setAlertViewChannel("sms")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
-                  alertViewChannel === "sms" ? "bg-teal-700 text-white" : "bg-slate-100 text-slate-600"
+                className={`px-3.5 py-2 rounded-lg text-xs font-semibold min-h-[40px] ${
+                  alertViewChannel === "sms" ? "bg-teal-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 }`}
               >
                 SMS Message

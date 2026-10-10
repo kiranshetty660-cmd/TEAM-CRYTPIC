@@ -135,17 +135,18 @@ def test_cases_sync_and_verification_states():
     assert case_verified["verified_by"] == "Dr. Sneha Rao (Chief Pharmacist)"
     assert case_verified["verification_reason"] == "Confirmed authentic batch alert via CDSCO notification letter."
 
-    # 3. Test other verification states: disputed
+    # 3. Test other verification states: disputed (both with verification_state and verification_status)
     disp_resp = client.post(
         f"/api/cases/{case_id}/verify",
         json={
-            "verification_state": "disputed",
+            "verification_status": "disputed",
             "reason": "Hospital claims shipment was delivered in secondary validated cooler.",
             "verified_by": "Arun Kumar",
         },
     )
     assert disp_resp.status_code == 200
     assert disp_resp.json()["verification_state"] == "disputed"
+    assert disp_resp.json()["status"] == "disputed"
 
     # 4. Test false_positive
     fp_resp = client.post(

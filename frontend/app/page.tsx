@@ -176,11 +176,12 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <Link href="/inventory">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto flex-wrap">
+          <Link href="/inventory" className="w-full sm:w-auto">
             <Button
               variant="indigo"
               size="sm"
+              className="w-full sm:w-auto"
               leftIcon={<Upload className="w-4 h-4 text-white" />}
             >
               Upload &amp; Test Expired CSV
@@ -192,6 +193,7 @@ export default function DashboardPage() {
             size="sm"
             onClick={handleReplayB2231}
             isLoading={replaying}
+            className="w-full sm:w-auto"
             leftIcon={<PlayCircle className="w-4 h-4 text-white" />}
           >
             Replay B2231 Recall
@@ -202,6 +204,7 @@ export default function DashboardPage() {
             size="sm"
             onClick={handleRunScan}
             isLoading={scanning}
+            className="w-full sm:w-auto"
             leftIcon={<RefreshCw className="w-4 h-4 text-white" />}
           >
             Run Safety Scan
@@ -211,7 +214,7 @@ export default function DashboardPage() {
 
       {/* PENDING EXPIRY REVIEW BANNER */}
       {pendingExpiryCase && pendingExpiryCase.status === "pending_owner_approval" && (
-        <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-5 shadow-xs animate-in fade-in">
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 sm:p-5 shadow-xs animate-in fade-in">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-start gap-3.5">
               <div className="p-2.5 bg-amber-600 text-white rounded-xl shrink-0 mt-0.5 shadow-2xs">
@@ -235,9 +238,9 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 shrink-0">
-              <Link href="/inventory">
-                <Button variant="danger" size="sm" rightIcon={<ArrowRight className="w-4 h-4" />}>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0 w-full md:w-auto">
+              <Link href="/inventory" className="w-full sm:w-auto">
+                <Button variant="danger" size="sm" className="w-full sm:w-auto" rightIcon={<ArrowRight className="w-4 h-4" />}>
                   Review Problem &amp; Approve Action
                 </Button>
               </Link>
@@ -248,7 +251,7 @@ export default function DashboardPage() {
 
       {/* 1. Critical Urgent Alert Banner */}
       {activeRecallFinding && (
-        <div className="bg-rose-50 border-2 border-rose-300 rounded-2xl p-5 shadow-xs">
+        <div className="bg-rose-50 border-2 border-rose-300 rounded-2xl p-4 sm:p-5 shadow-xs">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-start gap-3.5">
               <div className="p-2.5 bg-rose-600 text-white rounded-xl shrink-0 mt-0.5">
@@ -272,14 +275,14 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 shrink-0">
-              <Link href="/trace?batch=B2231">
-                <Button variant="secondary" size="sm" leftIcon={<Users className="w-4 h-4 text-slate-700" />}>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0 w-full md:w-auto">
+              <Link href="/trace?batch=B2231" className="w-full sm:w-auto">
+                <Button variant="secondary" size="sm" className="w-full sm:w-auto" leftIcon={<Users className="w-4 h-4 text-slate-700" />}>
                   View Affected Customers
                 </Button>
               </Link>
-              <Link href="/recall-demo">
-                <Button variant="danger" size="sm" rightIcon={<ArrowRight className="w-4 h-4" />}>
+              <Link href="/recall-demo" className="w-full sm:w-auto">
+                <Button variant="danger" size="sm" className="w-full sm:w-auto" rightIcon={<ArrowRight className="w-4 h-4" />}>
                   Review Recall Workflow
                 </Button>
               </Link>

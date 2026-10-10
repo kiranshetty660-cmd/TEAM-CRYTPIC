@@ -34,6 +34,7 @@ export default function CasesPage() {
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [updatingCaseId, setUpdatingCaseId] = useState<string | null>(null);
 
   const fetchCases = async () => {
     try {
@@ -67,14 +68,14 @@ export default function CasesPage() {
 
   const handleVerify = async (caseId: string, status: string) => {
     try {
-      setActionLoading(true);
-      await api.verifyCase(caseId, status, "Human verification confirmed in Case Management", "Compliance Officer");
+      setUpdatingCaseId(caseId);
+      await api.verifyCase(caseId, status, `Human verification (${status}) confirmed in Case Management`, "Compliance Officer");
       showToast(`Case marked as ${status}`, "success");
       await fetchCases();
     } catch (err: any) {
       showToast(err?.message || "Verification failed", "error");
     } finally {
-      setActionLoading(false);
+      setUpdatingCaseId(null);
     }
   };
 
@@ -245,106 +246,208 @@ export default function CasesPage() {
           action={<Button variant="secondary" onClick={handleSyncCases}>Sync Cases Now</Button>}
         />
       ) : (
-        <Table>
-          <TableHeader>
-            <tr>
-              <TableHead>Case ID</TableHead>
-              <TableHead>Incident & Description</TableHead>
-              <TableHead>Batch / SKU</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Verification</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </tr>
-          </TableHeader>
-          <TableBody>
+        <>
+          {/* Mobile Card List (< md) */}
+          <div className="md:hidden space-y-3">
             {filteredCases.map((c) => {
               const isRecall = c.type === "recall" || c.id.includes("REC");
+              const vStatus = c.verification_status || c.verification_state || "unverified";
+              const isBusy = actionLoading || updatingCaseId === c.id;
+
               return (
-              <TableRow key={c.id} className={isRecall ? "bg-rose-50/20 hover:bg-rose-50/40" : ""}>
-                <TableCell className="font-mono text-xs font-semibold text-slate-900">
-                  <div className="flex items-center gap-1.5">
-                    {c.id}
+                <div
+                  key={c.id}
+                  className={`p-4 rounded-xl border transition ${
+                    isRecall ? "bg-rose-50/30 border-rose-200 shadow-xs" : "bg-white border-slate-200 shadow-2xs"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="font-mono text-xs font-bold text-slate-900 block truncate">{c.id}</span>
+                      <h3 className="text-xs sm:text-sm font-semibold text-slate-900 mt-0.5">{c.title || "Quality Incident"}</h3>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Badge variant={c.status === "closed" ? "success" : c.status === "detected" ? "danger" : "warning"} size="sm">
+                        {c.status}
+                      </Badge>
+                    </div>
                   </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-slate-900 text-xs sm:text-sm">{c.title || "Quality Incident"}</span>
-                    {isRecall && (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-300">
-                        Recall Notice
+
+                  <div className="flex items-center gap-2 flex-wrap mt-2.5 pt-2 border-t border-slate-100 text-xs">
+                    {c.batch_id && (
+                      <span className="font-mono text-slate-700 bg-slate-100 px-2 py-0.5 rounded text-[11px] font-semibold">
+                        Batch: {c.batch_id}
                       </span>
                     )}
-                  </div>
-                  <div className="text-[11px] text-slate-500 mt-0.5">Linked Finding: {c.finding_id}</div>
-                </TableCell>
-                <TableCell>
-                  <div className="text-xs font-mono font-semibold text-slate-900">{c.batch_id || "—"}</div>
-                  {c.sku ? (
-                    <div className="mt-0.5">
-                      <span className="text-[11px] font-mono text-blue-700 font-medium bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 inline-block">
-                        {c.sku}
+                    {c.sku && (
+                      <span className="font-mono text-blue-700 bg-blue-50 px-2 py-0.5 rounded text-[11px] font-semibold border border-blue-100">
+                        SKU: {c.sku}
                       </span>
-                    </div>
-                  ) : null}
-                </TableCell>
-                <TableCell>
-                  <Badge variant={c.status === "closed" ? "success" : c.status === "detected" ? "danger" : "warning"} size="sm">
-                    {c.status}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold border ${
-                      c.verification_status === "verified"
-                        ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                        : c.verification_status === "disputed"
-                        ? "bg-rose-50 text-rose-800 border-rose-200"
-                        : "bg-amber-50 text-amber-800 border-amber-200"
-                    }`}
-                  >
-                    {c.verification_status || "unverified"}
-                  </span>
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-1.5">
+                    )}
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                        vStatus === "verified"
+                          ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                          : vStatus === "disputed"
+                          ? "bg-rose-50 text-rose-800 border-rose-200"
+                          : "bg-amber-50 text-amber-800 border-amber-200"
+                      }`}
+                    >
+                      {vStatus}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 mt-3 pt-2.5 border-t border-slate-100">
                     {isRecall && (
-                      <Link href="/recall-demo">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-rose-200 text-rose-700 hover:bg-rose-50 text-xs"
-                        >
+                      <Link href="/recall-demo" className="flex-1">
+                        <Button size="sm" variant="outline" className="w-full text-xs border-rose-200 text-rose-700 hover:bg-rose-50">
                           Workflow
                         </Button>
                       </Link>
                     )}
-                    {c.verification_status !== "verified" && (
+                    {vStatus !== "verified" && (
                       <Button
                         size="sm"
                         variant="emerald"
                         onClick={() => handleVerify(c.id, "verified")}
-                        disabled={actionLoading}
+                        disabled={isBusy}
+                        className="flex-1 text-xs"
                       >
                         Verify
                       </Button>
                     )}
-                    {c.verification_status !== "disputed" && (
+                    {vStatus !== "disputed" && (
                       <Button
                         size="sm"
                         variant="danger"
                         onClick={() => handleVerify(c.id, "disputed")}
-                        disabled={actionLoading}
+                        disabled={isBusy}
+                        className="flex-1 text-xs"
                       >
                         Dispute
                       </Button>
                     )}
                   </div>
-                </TableCell>
-              </TableRow>
-            );
+                </div>
+              );
             })}
-          </TableBody>
-        </Table>
+          </div>
+
+          {/* Desktop Table View (>= md) */}
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <tr>
+                  <TableHead>Case ID</TableHead>
+                  <TableHead>Incident & Description</TableHead>
+                  <TableHead>Batch / SKU</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Verification</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </tr>
+              </TableHeader>
+              <TableBody>
+                {filteredCases.map((c) => {
+                  const isRecall = c.type === "recall" || c.id.includes("REC");
+                  return (
+                  <TableRow key={c.id} className={isRecall ? "bg-rose-50/20 hover:bg-rose-50/40" : ""}>
+                    <TableCell className="font-mono text-xs font-semibold text-slate-900">
+                      <div className="flex items-center gap-1.5">
+                        {c.id}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-slate-900 text-xs sm:text-sm">{c.title || "Quality Incident"}</span>
+                        {isRecall && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-300">
+                            Recall Notice
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">Linked Finding: {c.finding_id}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-xs font-mono font-semibold text-slate-900">{c.batch_id || "—"}</div>
+                      {c.sku ? (
+                        <div className="mt-0.5">
+                          <span className="text-[11px] font-mono text-blue-700 font-medium bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 inline-block">
+                            {c.sku}
+                          </span>
+                        </div>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={c.status === "closed" ? "success" : c.status === "detected" ? "danger" : "warning"} size="sm">
+                        {c.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const vStatus = c.verification_status || c.verification_state || "unverified";
+                        return (
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                              vStatus === "verified"
+                                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                : vStatus === "disputed"
+                                ? "bg-rose-50 text-rose-800 border-rose-200"
+                                : "bg-amber-50 text-amber-800 border-amber-200"
+                            }`}
+                          >
+                            {vStatus}
+                          </span>
+                        );
+                      })()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {(() => {
+                        const vStatus = c.verification_status || c.verification_state || "unverified";
+                        const isBusy = actionLoading || updatingCaseId === c.id;
+                        return (
+                          <div className="flex items-center justify-end gap-1.5">
+                            {isRecall && (
+                              <Link href="/recall-demo">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-rose-200 text-rose-700 hover:bg-rose-50 text-xs"
+                                >
+                                  Workflow
+                                </Button>
+                              </Link>
+                            )}
+                            {vStatus !== "verified" && (
+                              <Button
+                                size="sm"
+                                variant="emerald"
+                                onClick={() => handleVerify(c.id, "verified")}
+                                disabled={isBusy}
+                              >
+                                Verify
+                              </Button>
+                            )}
+                            {vStatus !== "disputed" && (
+                              <Button
+                                size="sm"
+                                variant="danger"
+                                onClick={() => handleVerify(c.id, "disputed")}
+                                disabled={isBusy}
+                              >
+                                Dispute
+                              </Button>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </TableCell>
+                  </TableRow>
+                );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </>
       )}
     </div>
   );

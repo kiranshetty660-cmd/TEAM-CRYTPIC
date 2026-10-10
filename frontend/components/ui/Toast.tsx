@@ -10,7 +10,7 @@ interface Toast {
 }
 
 interface ToastContextType {
-  showToast: (message: string, type?: "success" | "error" | "info") => void;
+  showToast: (message: any, type?: "success" | "error" | "info") => void;
 }
 
 const ToastContext = createContext<ToastContextType>({ showToast: () => {} });
@@ -18,9 +18,19 @@ const ToastContext = createContext<ToastContextType>({ showToast: () => {} });
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const showToast = (message: string, type: "success" | "error" | "info" = "info") => {
+  const showToast = (message: any, type: "success" | "error" | "info" = "info") => {
+    let text = "Notification";
+    if (typeof message === "string") {
+      text = message;
+    } else if (message instanceof Error) {
+      text = message.message;
+    } else if (message && typeof message === "object") {
+      text = message.message || message.msg || message.detail || JSON.stringify(message);
+    } else if (message != null) {
+      text = String(message);
+    }
     const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, type, message }]);
+    setToasts((prev) => [...prev, { id, type, message: text }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 4000);
