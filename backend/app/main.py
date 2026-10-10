@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
-from app.db import get_db, engine, Base
+from app.db import get_db, engine, Base, is_sqlite
 from app.models import Ledger
 from app.config import settings
 
@@ -47,17 +47,23 @@ def _background_startup():
             ]
             for tbl, col, col_def in columns_to_ensure:
                 try:
-                    # SQLite PRAGMA check
-                    rows = conn.execute(text(f"PRAGMA table_info({tbl});")).fetchall()
-                    if rows:
-                        col_names = [r[1] for r in rows]
+                    if is_sqlite:
+                        # SQLite PRAGMA check
+                        rows = conn.execute(text(f"PRAGMA table_info({tbl});")).fetchall()
+                        col_names = [r[1] for r in rows] if rows else []
                         if col not in col_names:
                             conn.execute(text(f"ALTER TABLE {tbl} ADD COLUMN {col} {col_def};"))
                     else:
-                        conn.execute(text(f"ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS {col} {col_def};"))
+                        # PostgreSQL: use information_schema
+                        result = conn.execute(text(
+                            "SELECT column_name FROM information_schema.columns "
+                            "WHERE table_name = :tbl AND column_name = :col"
+                        ), {"tbl": tbl, "col": col}).fetchone()
+                        if not result:
+                            conn.execute(text(f'ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS {col} {col_def};'))
                 except Exception as mig_err:
                     try:
-                        conn.execute(text(f"ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS {col} {col_def};"))
+                        conn.execute(text(f'ALTER TABLE {tbl} ADD COLUMN IF NOT EXISTS {col} {col_def};'))
                     except Exception:
                         pass
 
