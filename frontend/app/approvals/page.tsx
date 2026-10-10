@@ -165,14 +165,21 @@ export default function ApprovalsPage() {
 
       {/* Header & Filter Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-            <CheckSquare className="w-6 h-6 text-teal-700" />
-            Action Approvals
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Review and sign off on proposed actions before they are executed. No medicine is moved or recalled without human authorization.
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center shrink-0 shadow-xs">
+            <CheckSquare className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+              Action Approvals
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-semibold">
+                Human Governance
+              </span>
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
+              Review and sign off on proposed actions before they are executed. No medicine is moved or recalled without human authorization.
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-200">
@@ -187,7 +194,7 @@ export default function ApprovalsPage() {
               onClick={() => setStatusFilter(tab.id)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition min-h-[34px] ${
                 statusFilter === tab.id
-                  ? "bg-teal-700 text-white font-semibold shadow-xs"
+                  ? "bg-blue-600 text-white font-semibold shadow-xs"
                   : "text-slate-600 hover:text-slate-900 hover:bg-white"
               }`}
             >

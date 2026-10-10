@@ -445,5 +445,14 @@ export const api = {
     const qs = approvedBy ? `?approved_by=${encodeURIComponent(approvedBy)}` : "";
     return fetchJson<any>(`/api/supply-chain/purchase-orders/${po}/approve${qs}`, { method: "POST" });
   },
+
+  // ---------------------------------------------------------------------------
+  // 3-Day Automated Medicine Expiry Notifications
+  // ---------------------------------------------------------------------------
+  getExpirySchedule: () => fetchJson<any>("/api/inventory/expiry-schedule"),
+  triggerExpiryNotification: () => fetchJson<any>("/api/inventory/expiry-schedule/trigger", { method: "POST" }),
+  updateExpiryScheduleConfig: (data: { cadence_days?: number; admin_email?: string; admin_phone?: string; enabled?: boolean }) =>
+    fetchJson<any>("/api/inventory/expiry-schedule/config", { method: "POST", body: JSON.stringify(data) }),
 };
+
 

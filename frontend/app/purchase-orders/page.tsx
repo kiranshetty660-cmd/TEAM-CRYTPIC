@@ -131,14 +131,17 @@ export default function PurchaseOrdersPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center shrink-0 shadow-xs">
-            <ShoppingCart className="w-5 h-5 text-amber-600" />
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center shrink-0 shadow-xs">
+            <ShoppingCart className="w-5 h-5 text-blue-600" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
               Purchase Orders & Replenishment
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-semibold">
+                TraceRx Supply
+              </span>
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500">
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
               Emergency replacement orders drafted during recalls and routine hospital stock replenishment.
             </p>
           </div>
@@ -155,7 +158,7 @@ export default function PurchaseOrdersPage() {
             Refresh
           </Button>
           <Button
-            variant="amber"
+            variant="primary"
             size="sm"
             onClick={() => setCreateModalOpen(true)}
             leftIcon={<Plus className="w-4 h-4" />}
@@ -167,22 +170,37 @@ export default function PurchaseOrdersPage() {
 
       {/* Summary Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="p-4 bg-white border border-slate-200 border-t-4 border-t-indigo-500 shadow-xs">
-          <div className="text-xs font-semibold uppercase tracking-wider text-indigo-700">Total Purchase Orders</div>
-          <div className="text-2xl font-bold text-slate-900 mt-1">{totalOrders}</div>
-          <p className="text-[11px] text-slate-400 mt-0.5">Recorded across all medicine suppliers</p>
+        <Card className="p-4 bg-blue-50/40 border border-blue-200 hover:border-blue-300 hover:bg-blue-50/70 hover:shadow-xs transition">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-blue-800">Total Purchase Orders</span>
+            <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+              <ShoppingCart className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-extrabold text-blue-950 mt-2">{totalOrders}</div>
+          <p className="text-[11px] text-blue-700 mt-1 font-medium">Recorded across all medicine suppliers</p>
         </Card>
 
-        <Card className="p-4 bg-white border border-slate-200 border-t-4 border-t-amber-500 shadow-xs">
-          <div className="text-xs font-semibold uppercase tracking-wider text-amber-600">Drafts Waiting for Review</div>
-          <div className="text-2xl font-bold text-amber-700 mt-1">{draftsCount}</div>
-          <p className="text-[11px] text-amber-600/80 mt-0.5">Requires procurement officer sign-off</p>
+        <Card className="p-4 bg-amber-50/40 border border-amber-200 hover:border-amber-300 hover:bg-amber-50/70 hover:shadow-xs transition">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-amber-800">Drafts Waiting for Review</span>
+            <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
+              <Clock className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-extrabold text-amber-950 mt-2">{draftsCount}</div>
+          <p className="text-[11px] text-amber-700 mt-1 font-medium">Requires procurement officer sign-off</p>
         </Card>
 
-        <Card className="p-4 bg-white border border-slate-200 border-t-4 border-t-emerald-500 shadow-xs">
-          <div className="text-xs font-semibold uppercase tracking-wider text-emerald-700">Active Supply Lines</div>
-          <div className="text-2xl font-bold text-emerald-800 mt-1">{totalOrders - draftsCount} Orders Placed</div>
-          <p className="text-[11px] text-emerald-600 mt-0.5">Dispatched or arriving at distribution hubs</p>
+        <Card className="p-4 bg-emerald-50/40 border border-emerald-200 hover:border-emerald-300 hover:bg-emerald-50/70 hover:shadow-xs transition">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">Active Supply Lines</span>
+            <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+              <Truck className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-extrabold text-emerald-950 mt-2">{totalOrders - draftsCount} Orders Placed</div>
+          <p className="text-[11px] text-emerald-700 mt-1 font-medium">Dispatched or arriving at distribution hubs</p>
         </Card>
       </div>
 
@@ -195,7 +213,7 @@ export default function PurchaseOrdersPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search PO number, medicine, or supplier..."
-            className="w-full pl-9 pr-4 py-2 rounded-lg bg-white border border-slate-300 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500 min-h-[38px]"
+            className="w-full pl-9 pr-4 py-2 rounded-lg bg-white border border-slate-300 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 min-h-[38px]"
           />
         </div>
 

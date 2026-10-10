@@ -65,14 +65,17 @@ export default function BatchTracePage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 border border-sky-200 flex items-center justify-center shrink-0 shadow-xs">
-            <Search className="w-5 h-5 text-sky-600" />
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center shrink-0 shadow-xs">
+            <Search className="w-5 h-5 text-blue-600" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
               Batch Traceability
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-semibold">
+                TraceRx Audit
+              </span>
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500">
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
               Trace medicine batches forward to hospitals and pharmacies, and backward to certified manufacturers.
             </p>
           </div>
@@ -89,10 +92,10 @@ export default function BatchTracePage() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Enter batch number (e.g. B2231, CR-B101, NE-881)..."
-              className="w-full pl-9 pr-4 py-2 rounded-lg bg-slate-50 border border-slate-300 text-slate-900 placeholder:text-slate-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 min-h-[40px]"
+              className="w-full pl-9 pr-4 py-2 rounded-lg bg-slate-50 border border-slate-300 text-slate-900 placeholder:text-slate-400 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 min-h-[40px]"
             />
           </div>
-          <Button type="submit" variant="sky" isLoading={loading}>
+          <Button type="submit" variant="primary" isLoading={loading}>
             Trace Batch
           </Button>
         </form>

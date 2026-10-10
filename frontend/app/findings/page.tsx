@@ -100,14 +100,17 @@ export default function FindingsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200 flex items-center justify-center shrink-0 shadow-xs">
-            <Sparkles className="w-5 h-5 text-indigo-600" />
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center shrink-0 shadow-xs">
+            <Sparkles className="w-5 h-5 text-blue-600" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
               Findings & Recommendations
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-semibold">
+                TraceRx Intelligence
+              </span>
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500">
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
               Plain-English summaries of inventory anomalies, regulatory risks, and recommended actions.
             </p>
           </div>
@@ -126,27 +129,54 @@ export default function FindingsPage() {
 
       {/* Metrics Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-        <Card className="p-4 bg-white border border-slate-200 border-t-4 border-t-indigo-500 shadow-xs">
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-indigo-700">Total Findings</div>
-          <div className="text-2xl font-bold text-slate-900 mt-1">{findings.length}</div>
+        <Card className="p-4 bg-blue-50/40 border border-blue-200 hover:border-blue-300 hover:bg-blue-50/70 hover:shadow-xs transition">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-blue-800">Total Findings</span>
+            <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+              <Sparkles className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-extrabold text-blue-950 mt-2">{findings.length}</div>
+          <p className="text-[11px] text-blue-700 mt-1 font-medium">Anomalies detected</p>
         </Card>
-        <Card className="p-4 bg-white border border-slate-200 border-t-4 border-t-rose-500 shadow-xs">
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-rose-600">Urgent Recalls</div>
-          <div className="text-2xl font-bold text-rose-700 mt-1">
+
+        <Card className="p-4 bg-rose-50/40 border border-rose-200 hover:border-rose-300 hover:bg-rose-50/70 hover:shadow-xs transition">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-rose-800">Urgent Recalls</span>
+            <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center">
+              <ShieldAlert className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-extrabold text-rose-950 mt-2">
             {findings.filter((f) => f.type === "recall").length}
           </div>
+          <p className="text-[11px] text-rose-700 mt-1 font-medium">Critical safety violations</p>
         </Card>
-        <Card className="p-4 bg-white border border-slate-200 border-t-4 border-t-blue-500 shadow-xs">
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-blue-600">Storage Excursions</div>
-          <div className="text-2xl font-bold text-blue-700 mt-1">
+
+        <Card className="p-4 bg-sky-50/40 border border-sky-200 hover:border-sky-300 hover:bg-sky-50/70 hover:shadow-xs transition">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-sky-800">Storage Excursions</span>
+            <div className="w-8 h-8 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center">
+              <ThermometerSnowflake className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-extrabold text-sky-950 mt-2">
             {findings.filter((f) => f.type === "coldchain").length}
           </div>
+          <p className="text-[11px] text-sky-700 mt-1 font-medium">Temperature threshold breaches</p>
         </Card>
-        <Card className="p-4 bg-white border border-slate-200 border-t-4 border-t-purple-500 shadow-xs">
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-purple-600">Expiry & FEFO</div>
-          <div className="text-2xl font-bold text-purple-700 mt-1">
+
+        <Card className="p-4 bg-purple-50/40 border border-purple-200 hover:border-purple-300 hover:bg-purple-50/70 hover:shadow-xs transition">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-purple-800">Expiry &amp; FEFO</span>
+            <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center">
+              <Clock className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl font-extrabold text-purple-950 mt-2">
             {findings.filter((f) => f.type === "expiry" || f.type === "fefo" || f.type === "returnwindow").length}
           </div>
+          <p className="text-[11px] text-purple-700 mt-1 font-medium">Shelf-life & dispatch order</p>
         </Card>
       </div>
 
@@ -159,7 +189,7 @@ export default function FindingsPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search findings by medicine, batch, or issue..."
-            className="w-full pl-9 pr-4 py-2 rounded-lg bg-white border border-slate-300 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[38px]"
+            className="w-full pl-9 pr-4 py-2 rounded-lg bg-white border border-slate-300 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 min-h-[38px]"
           />
         </div>
 

@@ -121,14 +121,17 @@ export default function VerifyPage() {
       {/* Header & Verification Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center shrink-0 shadow-xs">
-            <Lock className="w-5 h-5 text-emerald-600" />
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center shrink-0 shadow-xs">
+            <Lock className="w-5 h-5 text-blue-600" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
               Audit & Verification Ledger
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-semibold">
+                Immutable Ledger
+              </span>
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500">
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
               Permanent, tamper-evident record of every medicine movement, recall decision, and human approval.
             </p>
           </div>
@@ -156,7 +159,7 @@ export default function VerifyPage() {
           </Button>
 
           <Button
-            variant="blue"
+            variant="primary"
             size="sm"
             onClick={handleRecomputeVerification}
             isLoading={verifying}

@@ -7,7 +7,7 @@ if database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
 
 is_sqlite = database_url.startswith("sqlite")
-connect_args = {"check_same_thread": False} if is_sqlite else {}
+connect_args = {"check_same_thread": False} if is_sqlite else {"prepare_threshold": None}
 
 engine_kwargs = {
     "connect_args": connect_args,
@@ -17,9 +17,9 @@ engine_kwargs = {
 
 if not is_sqlite:
     engine_kwargs.update({
-        "pool_size": 10,
-        "max_overflow": 20,
-        "pool_recycle": 300,
+        "pool_size": 5,
+        "max_overflow": 5,
+        "pool_recycle": 120,
     })
 
 engine = create_engine(database_url, **engine_kwargs)

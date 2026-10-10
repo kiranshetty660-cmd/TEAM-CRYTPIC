@@ -297,19 +297,24 @@ export default function NotificationsPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                Regulatory Complaints & Recall Notifications
-              </h1>
-              <span className="px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
-                Email + SMS Multi-Channel
-              </span>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-200 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center shrink-0 shadow-xs">
+              <FileText className="w-5 h-5 text-blue-600" />
             </div>
-            <p className="text-sm text-slate-500 mt-1">
-              Patient portal intake, warehouse quality reports, batch recipient tracing, and human-authorized recall alerts.
-            </p>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+                  Regulatory Complaints & Recall Notifications
+                </h1>
+                <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-semibold">
+                  Multi-Channel Broadcast
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                Patient portal intake, warehouse quality reports, batch recipient tracing, and human-authorized recall alerts.
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">

@@ -38,7 +38,13 @@ def detect_critical_shortages(db: Session) -> List[Finding]:
 
         # Calculate average daily demand over 60 days
         disp_60d = disp_by_sku.get(prod.sku, 0)
-        avg_daily_demand = max(1.0, round(disp_60d / 60.0, 1))
+        
+        # Only evaluate medicines that are actually stocked or carried in this facility
+        # If both current stock and historical dispatches are zero, it is not a facility shortage
+        if total_stock == 0 and disp_60d == 0:
+            continue
+
+        avg_daily_demand = max(0.5, round(disp_60d / 60.0, 1)) if disp_60d > 0 else 1.0
 
         cover_days = round(total_stock / avg_daily_demand, 1)
 

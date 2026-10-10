@@ -101,7 +101,7 @@ class PurchaseOrder(Base):
     sku = Column(String(50), ForeignKey("products.sku"), nullable=False, index=True)
     qty = Column(Integer, nullable=False)
     expected_date = Column(Date, nullable=False)
-    status = Column(String(20), nullable=False, default="ordered")  # 'draft', 'ordered', 'received', 'cancelled'
+    status = Column(String(100), nullable=False, default="ordered")  # 'draft', 'ordered', 'received', 'cancelled', 'delayed – supplier stock issue', etc.
     draft = Column(Boolean, nullable=False, default=False)
 
 class Recall(Base):

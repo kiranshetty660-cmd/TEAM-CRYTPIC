@@ -25,6 +25,10 @@ import {
   AlertOctagon,
   Eye,
   FileText,
+  Bell,
+  Send,
+  Settings,
+  Calendar,
 } from "lucide-react";
 import { api } from "../../lib/api";
 import { REQUIRED_SCHEMAS, ENTITY_CONFIG } from "../../lib/canonical-schemas";
@@ -57,6 +61,16 @@ export default function InventoryPage() {
   const [activeAgentIndex, setActiveAgentIndex] = useState<number>(-1);
   const [agentsTimeline, setAgentsTimeline] = useState<any[]>([]);
 
+  // 3-Day Automated Expiry Notification State
+  const [expirySchedule, setExpirySchedule] = useState<any | null>(null);
+  const [triggeringAlert, setTriggeringAlert] = useState(false);
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [savingSchedule, setSavingSchedule] = useState(false);
+  const [configCadence, setConfigCadence] = useState<number>(3);
+  const [configEmail, setConfigEmail] = useState<string>("chethuc809@gmail.com");
+  const [configPhone, setConfigPhone] = useState<string>("+917996662516");
+  const [configEnabled, setConfigEnabled] = useState<boolean>(true);
+
   // Adaptation Wizard State
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardStep, setWizardStep] = useState<1 | 2 | 3 | 4>(1);
@@ -76,6 +90,72 @@ export default function InventoryPage() {
   const [committing, setCommitting] = useState(false);
   const [commitResult, setCommitResult] = useState<any>(null);
   const [rollingBack, setRollingBack] = useState(false);
+
+  const loadExpirySchedule = async () => {
+    try {
+      const sched = await api.getExpirySchedule();
+      setExpirySchedule(sched);
+      if (sched) {
+        setConfigCadence(sched.cadence_days || 3);
+        setConfigEmail(sched.admin_email || "chethuc809@gmail.com");
+        setConfigPhone(sched.admin_phone || "+917996662516");
+        setConfigEnabled(sched.enabled ?? true);
+      }
+    } catch (_) {}
+  };
+
+  const handleTriggerExpiryNotification = async () => {
+    try {
+      setTriggeringAlert(true);
+      const res = await api.triggerExpiryNotification();
+      showToast(
+        `3-Day Notification delivered! Alerted Admin at ${res.email_delivery?.provider_message_id ? "chethuc809@gmail.com (Email)" : "Email"} & ${res.sms_delivery?.status ? "+917996662516 (SMS)" : "SMS"}. Logged to Ledger #${res.ledger_sequence}.`,
+        "success"
+      );
+      await loadExpirySchedule();
+      await loadInventory();
+    } catch (err: any) {
+      showToast(err?.message || "Failed to trigger 3-day notification", "error");
+    } finally {
+      setTriggeringAlert(false);
+    }
+  };
+
+  const handleSaveScheduleConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setSavingSchedule(true);
+      const updated = await api.updateExpiryScheduleConfig({
+        cadence_days: configCadence,
+        admin_email: configEmail,
+        admin_phone: configPhone,
+        enabled: configEnabled,
+      });
+      setExpirySchedule(updated);
+      setScheduleModalOpen(false);
+      showToast(`Expiry notification schedule updated to every ${configCadence} days!`, "success");
+    } catch (err: any) {
+      showToast(err?.message || "Failed to update schedule config", "error");
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
+
+  const formatScheduleDate = (dateStr?: string) => {
+    if (!dateStr) return "Pending calculation";
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return dateStr;
+    }
+  };
 
   const loadInventory = async () => {
     try {
@@ -102,6 +182,7 @@ export default function InventoryPage() {
   useEffect(() => {
     loadInventory();
     checkPendingCases();
+    loadExpirySchedule();
   }, [statusFilter, warehouseFilter]);
 
   // Step 1 -> Step 2: Profile Dataset
@@ -342,14 +423,22 @@ export default function InventoryPage() {
   return (
     <div className="space-y-6">
       {/* Header & Controls */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-            Batch Inventory &amp; Shelf-Life Radar
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Tracking {data?.total_batches ?? 0} batches across distribution nodes with color-coded shelf-life heat classification.
-          </p>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-2 border-b border-slate-200">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center shrink-0 shadow-xs">
+            <Boxes className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+              Batch Inventory &amp; Shelf-Life Radar
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-semibold">
+                TraceRx Radar
+              </span>
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
+              Tracking {data?.total_batches ?? 0} batches across distribution nodes with color-coded shelf-life heat classification.
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
@@ -426,6 +515,70 @@ export default function InventoryPage() {
         </div>
       )}
 
+      {/* 3-Day Automated Expiry Notification Service Banner */}
+      <Card className="p-4 sm:p-5 bg-gradient-to-r from-blue-50/70 via-indigo-50/50 to-slate-50 border border-blue-200 shadow-xs rounded-2xl">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+              <Bell className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-blue-900">
+                  Automated Admin Expiry Alerts
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Every {expirySchedule?.cadence_days || 3} Days Active
+                </span>
+                <span className="text-[11px] px-2 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200 font-medium">
+                  In-App + Email ({expirySchedule?.admin_email || "chethuc809@gmail.com"}) + SMS ({expirySchedule?.admin_phone || "+917996662516"})
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed max-w-3xl">
+                Every {expirySchedule?.cadence_days || 3} days, the automated compliance engine scans all warehouse stock and notifies the Admin with a breakdown of expired and near-expiry medicine batches.
+                {expirySchedule?.current_audit?.expired_batches_count > 0 && (
+                  <strong className="text-rose-600 ml-1">
+                    Currently {expirySchedule.current_audit.expired_batches_count} expired batches ({expirySchedule.current_audit.expired_total_units} units) detected in distribution hubs!
+                  </strong>
+                )}
+              </p>
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-[11px] text-slate-500 mt-2 font-medium">
+                <span>Last Dispatched: <strong className="text-slate-800">{formatScheduleDate(expirySchedule?.last_run_at)}</strong></span>
+                <span>•</span>
+                <span>Next Scheduled: <strong className="text-slate-800">{formatScheduleDate(expirySchedule?.next_run_due)}</strong></span>
+                {expirySchedule?.current_audit && (
+                  <>
+                    <span>•</span>
+                    <span>Monitoring: <strong className="text-slate-800">{data?.total_batches || 0} Batches</strong> across 3 hubs</span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setScheduleModalOpen(true)}
+              leftIcon={<Clock className="w-4 h-4 text-slate-600" />}
+            >
+              Configure Schedule
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleTriggerExpiryNotification}
+              isLoading={triggeringAlert}
+              leftIcon={<Send className="w-4 h-4" />}
+            >
+              Trigger 3-Day Alert Now
+            </Button>
+          </div>
+        </div>
+      </Card>
+
       {/* Filter Strip */}
       <Card className="p-4 bg-white border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3 flex-wrap">
@@ -437,7 +590,7 @@ export default function InventoryPage() {
           <select
             value={warehouseFilter}
             onChange={(e) => setWarehouseFilter(e.target.value)}
-            className="px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-xs text-slate-800 focus:outline-none min-h-[38px]"
+            className="px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 min-h-[38px]"
           >
             <option value="">All Warehouses</option>
             <option value="WH-1">WH-1 Bengaluru</option>
@@ -448,7 +601,7 @@ export default function InventoryPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-xs text-slate-800 focus:outline-none min-h-[38px]"
+            className="px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 min-h-[38px]"
           >
             <option value="">All Statuses</option>
             <option value="active">Active Only</option>
@@ -1232,6 +1385,92 @@ export default function InventoryPage() {
             </>
           )}
         </div>
+      </Modal>
+
+      {/* 3-Day Expiry Notification Schedule Settings Modal */}
+      <Modal
+        isOpen={scheduleModalOpen}
+        onClose={() => setScheduleModalOpen(false)}
+        title="Admin Expiry Notification Schedule"
+        description="Configure automated periodic alerts to notify the admin about expired and near-expiry warehouse medicines."
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <Button variant="secondary" size="sm" onClick={() => setScheduleModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" size="sm" onClick={handleSaveScheduleConfig} isLoading={savingSchedule}>
+              Save Schedule Settings
+            </Button>
+          </div>
+        }
+      >
+        <form onSubmit={handleSaveScheduleConfig} className="space-y-4 py-2">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Notification Cadence (Interval in Days)
+            </label>
+            <select
+              value={configCadence}
+              onChange={(e) => setConfigCadence(Number(e.target.value))}
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value={1}>Every 1 Day (Daily Audit)</option>
+              <option value={3}>Every 3 Days (Standard Safety Cadence - Recommended)</option>
+              <option value={7}>Every 7 Days (Weekly Summary)</option>
+              <option value={14}>Every 14 Days (Bi-Weekly Digest)</option>
+            </select>
+            <p className="text-[11px] text-slate-500 mt-1">
+              The compliance engine will automatically evaluate all active batches every {configCadence} days and alert the Admin.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Admin Recipient Email (Gmail SMTP)
+            </label>
+            <input
+              type="email"
+              value={configEmail}
+              onChange={(e) => setConfigEmail(e.target.value)}
+              required
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="admin@example.com"
+            />
+            <p className="text-[11px] text-slate-500 mt-1">
+              Live pharmaceutical email with batch tables & quarantine direct action links.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Admin Mobile Number (SMS Gateway)
+            </label>
+            <input
+              type="text"
+              value={configPhone}
+              onChange={(e) => setConfigPhone(e.target.value)}
+              required
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs sm:text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="+91XXXXXXXXXX"
+            />
+            <p className="text-[11px] text-slate-500 mt-1">
+              Indian 10-digit mobile number with standard +91 country prefix.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
+            <input
+              type="checkbox"
+              id="enableScheduleToggle"
+              checked={configEnabled}
+              onChange={(e) => setConfigEnabled(e.target.checked)}
+              className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
+            />
+            <label htmlFor="enableScheduleToggle" className="text-xs font-semibold text-slate-700 select-none">
+              Enable automated background scheduler for periodic alerts
+            </label>
+          </div>
+        </form>
       </Modal>
     </div>
   );

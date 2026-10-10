@@ -448,15 +448,33 @@ async def commit_dataset(
                 existing_sku_ids = {p.sku for p in db.query(Product.sku).all()}
 
                 for raw_r in sanitized_rows:
-                    d_date = parse_flexible_date(raw_r.get(mapping.get("date")))
-                    cust = str(raw_r.get(mapping.get("customer_id", "")) or "").strip()
-                    sku = str(raw_r.get(mapping.get("sku", "")) or "").strip().upper()
-                    batch = str(raw_r.get(mapping.get("batch", "")) or "").strip()
-                    qty = parse_flexible_int(raw_r.get(mapping.get("qty"))) or 1
-                    
-                    wh_col = mapping.get("from_warehouse")
-                    wh_raw = raw_r.get(wh_col) if wh_col else None
-                    wh = str(wh_raw).strip() if (wh_raw is not None and str(wh_raw).strip() not in ("None", "")) else "WH-1"
+                    date_val = (raw_r.get(mapping.get("date")) if mapping.get("date") else None) or raw_r.get("date")
+                    d_date = parse_flexible_date(date_val)
+
+                    cust_val = (
+                        (raw_r.get(mapping.get("customer")) if mapping.get("customer") else None)
+                        or (raw_r.get(mapping.get("customer_id")) if mapping.get("customer_id") else None)
+                        or raw_r.get("customer")
+                        or raw_r.get("customer_id")
+                        or ""
+                    )
+                    cust = str(cust_val or "").strip()
+
+                    sku_val = (raw_r.get(mapping.get("sku")) if mapping.get("sku") else None) or raw_r.get("sku")
+                    sku = str(sku_val or "").strip().upper()
+
+                    batch_val = (raw_r.get(mapping.get("batch")) if mapping.get("batch") else None) or raw_r.get("batch")
+                    batch = str(batch_val or "").strip()
+
+                    qty_val = (raw_r.get(mapping.get("qty")) if mapping.get("qty") else None) or raw_r.get("qty")
+                    qty = parse_flexible_int(qty_val) or 1
+
+                    wh_val = (
+                        (raw_r.get(mapping.get("from_warehouse")) if mapping.get("from_warehouse") else None)
+                        or raw_r.get("from_warehouse")
+                        or raw_r.get("warehouse")
+                    )
+                    wh = str(wh_val).strip() if (wh_val is not None and str(wh_val).strip() not in ("None", "")) else "WH-1"
 
                     if d_date and cust and sku and batch:
                         # Auto-create missing foreign key parent customer if not present
@@ -486,12 +504,12 @@ async def commit_dataset(
                             db.flush()
                             existing_sku_ids.add(sku)
 
-                        # Enforce regulatory dispatch block for recalled/quarantined batches
+                        # Enforce regulatory dispatch block for future dispatches of recalled/quarantined batches
                         blocked_batch = db.query(BatchInventory).filter(
                             BatchInventory.batch == batch,
                             BatchInventory.status.in_(["blocked", "quarantine", "recalled"])
                         ).first()
-                        if blocked_batch:
+                        if blocked_batch and d_date >= settings.today:
                             raise HTTPException(
                                 status_code=400,
                                 detail=f"Dispatch blocked: Batch '{batch}' has been quarantined/recalled (status: {blocked_batch.status}). Regulatory compliance prevents further dispatch."
@@ -511,13 +529,36 @@ async def commit_dataset(
 
             elif target_table_name == "customers":
                 for raw_r in sanitized_rows:
-                    c_id = str(raw_r.get(mapping.get("customer_id", "")) or "").strip()
+                    c_id_raw = (
+                        (raw_r.get(mapping.get("customer")) if mapping.get("customer") else None)
+                        or (raw_r.get(mapping.get("customer_id")) if mapping.get("customer_id") else None)
+                        or raw_r.get("customer")
+                        or raw_r.get("customer_id")
+                        or ""
+                    )
+                    c_id = str(c_id_raw or "").strip()
                     if not c_id:
                         continue
-                    c_name = str(raw_r.get(mapping.get("name", "")) or f"Customer {c_id}").strip()
-                    c_type = str(raw_r.get(mapping.get("type", "")) or "chemist").strip().lower()
-                    c_loc = str(raw_r.get(mapping.get("location", "")) or "Regional Territory").strip()
-                    c_terms = str(raw_r.get(mapping.get("credit_terms", "")) or "Net 30").strip()
+                    c_name = str(
+                        (raw_r.get(mapping.get("name")) if mapping.get("name") else None)
+                        or raw_r.get("name")
+                        or f"Customer {c_id}"
+                    ).strip()
+                    c_type = str(
+                        (raw_r.get(mapping.get("type")) if mapping.get("type") else None)
+                        or raw_r.get("type")
+                        or "chemist"
+                    ).strip().lower()
+                    c_loc = str(
+                        (raw_r.get(mapping.get("location")) if mapping.get("location") else None)
+                        or raw_r.get("location")
+                        or "Regional Territory"
+                    ).strip()
+                    c_terms = str(
+                        (raw_r.get(mapping.get("credit_terms")) if mapping.get("credit_terms") else None)
+                        or raw_r.get("credit_terms")
+                        or "Net 30"
+                    ).strip()
 
                     existing = db.query(Customer).filter(Customer.customer_id == c_id).first()
                     if existing:
@@ -576,14 +617,19 @@ async def commit_dataset(
                         db.add(Supplier(manufacturer=mfg, sku=sku, unit_cost=cost, lead_time_days=lead, moq=moq, return_window_days=ret_w, credit_pct=cred))
                     affected_ids.append(f"{mfg}:{sku}")
 
-            elif target_table_name == "temp_logs":
+            elif target_table_name in ("temp_logs", "temperature_logs"):
                 for raw_r in sanitized_rows:
-                    wh = str(raw_r.get(mapping.get("warehouse", "")) or "WH-1").strip()
-                    cr = str(raw_r.get(mapping.get("cold_room", "")) or "CR-1").strip()
-                    temp_val = parse_flexible_float(raw_r.get(mapping.get("temp_c")))
+                    wh = str((raw_r.get(mapping.get("warehouse")) if mapping.get("warehouse") else None) or raw_r.get("warehouse") or "WH-1").strip()
+                    cr = str((raw_r.get(mapping.get("cold_room")) if mapping.get("cold_room") else None) or raw_r.get("cold_room") or "CR-1").strip()
+                    temp_val = parse_flexible_float((raw_r.get(mapping.get("temp_c")) if mapping.get("temp_c") else None) or raw_r.get("temp_c"))
                     if temp_val is None:
                         continue
-                    raw_ts = raw_r.get(mapping.get("ts"))
+                    raw_ts = (
+                        (raw_r.get(mapping.get("timestamp")) if mapping.get("timestamp") else None)
+                        or (raw_r.get(mapping.get("ts")) if mapping.get("ts") else None)
+                        or raw_r.get("timestamp")
+                        or raw_r.get("ts")
+                    )
                     ts_val = None
                     if raw_ts:
                         try:
@@ -599,12 +645,12 @@ async def commit_dataset(
             elif target_table_name == "purchase_orders":
                 existing_sku_ids = {p.sku for p in db.query(Product.sku).all()}
                 for raw_r in sanitized_rows:
-                    po_num = str(raw_r.get(mapping.get("po", "")) or "").strip()
-                    mfg = str(raw_r.get(mapping.get("manufacturer", "")) or "MANU-GENERIC").strip()
-                    sku = str(raw_r.get(mapping.get("sku", "")) or "").strip().upper()
-                    qty = parse_flexible_int(raw_r.get(mapping.get("qty"))) or 100
-                    exp_d = parse_flexible_date(raw_r.get(mapping.get("expected_date"))) or (date.today() + timedelta(days=7))
-                    status = str(raw_r.get(mapping.get("status", "")) or "ordered").strip().lower()
+                    po_num = str((raw_r.get(mapping.get("po")) if mapping.get("po") else None) or raw_r.get("po") or "").strip()
+                    mfg = str((raw_r.get(mapping.get("manufacturer")) if mapping.get("manufacturer") else None) or raw_r.get("manufacturer") or "MANU-GENERIC").strip()
+                    sku = str((raw_r.get(mapping.get("sku")) if mapping.get("sku") else None) or raw_r.get("sku") or "").strip().upper()
+                    qty = parse_flexible_int((raw_r.get(mapping.get("qty")) if mapping.get("qty") else None) or raw_r.get("qty")) or 100
+                    exp_d = parse_flexible_date((raw_r.get(mapping.get("expected_date")) if mapping.get("expected_date") else None) or raw_r.get("expected_date")) or (date.today() + timedelta(days=7))
+                    status = str((raw_r.get(mapping.get("status")) if mapping.get("status") else None) or raw_r.get("status") or "ordered").strip().lower()[:100]
                     if not po_num or not sku:
                         continue
                     if sku not in existing_sku_ids:
@@ -866,12 +912,26 @@ async def upload_csv_data(
 
         elif tbl == "dispatches":
             for r in sanitized_rows:
-                d_date = parse_flexible_date(r.get(mapping.get("date")) or r.get("date"))
-                cust = str(r.get(mapping.get("customer")) or r.get(mapping.get("customer_id")) or r.get("customer", "")).strip()
-                sku = str(r.get(mapping.get("sku")) or r.get("sku", "")).strip().upper()
-                batch = str(r.get(mapping.get("batch")) or r.get("batch", "")).strip()
-                qty = parse_flexible_int(r.get(mapping.get("qty")) or r.get("qty")) or 1
-                wh = str(r.get(mapping.get("from_warehouse")) or r.get("from_warehouse") or "WH-1").strip()
+                d_date = parse_flexible_date((r.get(mapping.get("date")) if mapping.get("date") else None) or r.get("date"))
+                cust = str(
+                    (r.get(mapping.get("customer")) if mapping.get("customer") else None)
+                    or (r.get(mapping.get("customer_id")) if mapping.get("customer_id") else None)
+                    or r.get("customer")
+                    or r.get("customer_id")
+                    or ""
+                ).strip()
+                sku = str((r.get(mapping.get("sku")) if mapping.get("sku") else None) or r.get("sku") or "").strip().upper()
+                batch = str((r.get(mapping.get("batch")) if mapping.get("batch") else None) or r.get("batch") or "").strip()
+                qty = parse_flexible_int((r.get(mapping.get("qty")) if mapping.get("qty") else None) or r.get("qty")) or 1
+                wh = str(
+                    (r.get(mapping.get("from_warehouse")) if mapping.get("from_warehouse") else None)
+                    or r.get("from_warehouse")
+                    or r.get("warehouse")
+                    or "WH-1"
+                ).strip()
+
+                if not cust or not sku or not batch or not d_date:
+                    continue
 
                 if not db.query(Customer).filter(Customer.customer_id == cust).first():
                     db.add(Customer(customer_id=cust, name=f"Customer {cust}", type="chemist", location="Regional Territory", credit_terms="Net 30"))
@@ -948,7 +1008,7 @@ async def upload_csv_data(
                 sku = str(r.get(mapping.get("sku")) or r.get("sku", "")).strip().upper()
                 qty = parse_flexible_int(r.get(mapping.get("qty")) or r.get("qty")) or 100
                 exp_d = parse_flexible_date(r.get(mapping.get("expected_date")) or r.get("expected_date")) or (date.today() + timedelta(days=7))
-                status = str(r.get(mapping.get("status")) or r.get("status", "ordered")).strip().lower()
+                status = str(r.get(mapping.get("status")) or r.get("status", "ordered")).strip().lower()[:100]
 
                 if not db.query(Product).filter(Product.sku == sku).first():
                     db.add(Product(sku=sku, brand=f"Brand {sku}", molecule=sku, category="General", storage="ambient", critical_drug=False))

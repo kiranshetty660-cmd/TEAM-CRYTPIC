@@ -259,7 +259,7 @@ def match_columns_to_canonical(source_columns: List[str], target_table: str) -> 
 
 def parse_flexible_date(val: Any) -> Optional[date]:
     """
-    Parses ISO (YYYY-MM-DD), DD-MM-YYYY, DD/MM/YYYY, MM/DD/YYYY, or datetime.
+    Parses ISO (YYYY-MM-DD), DD-MM-YYYY, DD/MM/YYYY, MM/DD/YYYY, Excel serial, or datetime.
     """
     if val is None:
         return None
@@ -272,6 +272,15 @@ def parse_flexible_date(val: Any) -> Optional[date]:
     if not val_str:
         return None
 
+    # Check for Excel serial date (e.g. 35000 to 55000 represents 1995 to 2050)
+    try:
+        fval = float(val_str)
+        if 35000 <= fval <= 55000:
+            excel_base = date(1899, 12, 30)
+            return excel_base + timedelta(days=int(fval))
+    except (ValueError, TypeError):
+        pass
+
     if "T" in val_str:
         val_str = val_str.split("T")[0]
     elif " " in val_str:
@@ -282,8 +291,22 @@ def parse_flexible_date(val: Any) -> Optional[date]:
         "%d-%m-%Y",
         "%d/%m/%Y",
         "%m/%d/%Y",
+        "%m-%d-%Y",
         "%Y/%m/%d",
         "%d.%m.%Y",
+        "%Y.%m.%d",
+        "%b %d, %Y",
+        "%d %b %Y",
+        "%d-%b-%Y",
+        "%d-%b-%y",
+        "%d/%b/%Y",
+        "%d/%b/%y",
+        "%d-%B-%Y",
+        "%d/%B/%Y",
+        "%d/%m/%y",
+        "%m/%d/%y",
+        "%d-%m-%y",
+        "%y-%m-%d",
     ]
     for fmt in formats:
         try:
@@ -776,7 +799,7 @@ def validate_dataset(
 
             stat_val = clean_row.get("status")
             if stat_val:
-                clean_row["status"] = str(stat_val).strip().lower()
+                clean_row["status"] = str(stat_val).strip().lower()[:100]
 
         elif tbl == "recalls":
             d_val = clean_row.get("date")

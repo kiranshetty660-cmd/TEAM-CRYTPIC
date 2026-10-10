@@ -21,6 +21,7 @@ from app.routers import (
     calling,
     incidents,
     recall_demo,
+    expiry_notifications,
 )
 
 # Non-blocking startup & pre-warming
@@ -95,6 +96,10 @@ def _background_startup():
         from app.routers.board import execute_full_scan
         execute_full_scan(db)
         db.close()
+
+        # Start 3-day automated medicine expiry notification scheduler
+        from app.services.expiry_scheduler import start_scheduler_thread
+        start_scheduler_thread()
     except Exception as e:
         print(f"Background prewarm note: {e}")
 
@@ -132,6 +137,7 @@ app.include_router(agent_monitor.router)
 app.include_router(calling.router)
 app.include_router(incidents.router)
 app.include_router(recall_demo.router)
+app.include_router(expiry_notifications.router)
 
 @app.get("/api/health")
 def health_check(db: Session = Depends(get_db)):

@@ -21,6 +21,11 @@ import {
   Building2,
   Calendar,
   Upload,
+  ShoppingCart,
+  RotateCcw,
+  TrendingDown,
+  Package,
+  ShieldCheck,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { BoardResponse, Finding, LedgerEntry } from "../lib/types";
@@ -35,6 +40,7 @@ export default function DashboardPage() {
   const [data, setData] = useState<BoardResponse | null>(null);
   const [ledgerRecent, setLedgerRecent] = useState<LedgerEntry[]>([]);
   const [pendingExpiryCase, setPendingExpiryCase] = useState<any | null>(null);
+  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [replaying, setReplaying] = useState(false);
@@ -44,14 +50,16 @@ export default function DashboardPage() {
     try {
       setLoading(true);
       setError(null);
-      const [boardRes, ledgerRes, expiryRes] = await Promise.all([
+      const [boardRes, ledgerRes, expiryRes, invRes] = await Promise.all([
         api.getBoard(),
         api.getLedger(5, 0).catch(() => []),
         api.demoGetPendingExpiryCases().catch(() => ({ count: 0, cases: [], latest_case: null })),
+        api.getInventory("active").catch(() => null),
       ]);
       setData(boardRes);
       setLedgerRecent(ledgerRes || []);
       setPendingExpiryCase(expiryRes?.latest_case || null);
+      setInventoryItems(invRes?.items || []);
     } catch (err: any) {
       setError(err?.message || "Failed to load dashboard data");
     } finally {
@@ -99,10 +107,53 @@ export default function DashboardPage() {
     .sort((a, b) => b.severity - a.severity)
     .slice(0, 4);
 
+  // 1. Critical Shortages: life-saving medicines where cover days < supplier replenishment lead times
+  const criticalShortages = (data?.findings || []).filter((f) => f.type === "critical");
+
+  // 2. Near Expiry Findings & Batches (< 120 days to expiry)
+  const nearExpiryFindings = (data?.findings || []).filter(
+    (f) => f.type === "expiry" || f.type === "returnwindow"
+  );
+
+  const nearExpiryBatches = inventoryItems
+    .filter((i) => i.days_to_expiry <= 120 && i.qty > 0)
+    .sort((a, b) => a.days_to_expiry - b.days_to_expiry);
+
+  // Unified near-expiry list for presentation
+  const displayNearExpiryList =
+    nearExpiryBatches.length > 0
+      ? nearExpiryBatches.map((b) => {
+          const matchingExp = nearExpiryFindings.find(
+            (f) => f.entities?.batch === b.batch && f.type === "expiry"
+          );
+          const matchingRet = nearExpiryFindings.find(
+            (f) => f.entities?.batch === b.batch && f.type === "returnwindow"
+          );
+          return {
+            ...b,
+            matchingExp,
+            matchingRet,
+          };
+        })
+      : nearExpiryFindings.map((f) => ({
+          batch: f.entities?.batch || "N/A",
+          brand: f.entities?.brand || f.title,
+          sku: f.entities?.sku || "N/A",
+          molecule: f.entities?.molecule || "Pharmaceutical Formulation",
+          warehouse: f.entities?.warehouse || "WH-1",
+          qty: f.metrics?.qty_total || f.metrics?.units || 0,
+          expiry_date: f.entities?.expiry_date || "2026-12-15",
+          days_to_expiry: f.metrics?.days_to_expiry ?? 60,
+          heat_color: (f.metrics?.days_to_expiry ?? 60) <= 60 ? "red" : "amber",
+          matchingExp: f.type === "expiry" ? f : undefined,
+          matchingRet: f.type === "returnwindow" ? f : undefined,
+        }));
+
   // Compute key metric numbers from backend data
   const activeRecallsCount = data?.findings.filter((f) => f.type === "recall").length || 0;
   const awaitingApprovalCount = data?.findings.filter((f) => f.action_id).length || 0;
-  const stockShortagesCount = data?.findings.filter((f) => f.type === "critical").length || 0;
+  const stockShortagesCount = criticalShortages.length;
+  const nearExpiryCount = Math.max(nearExpiryBatches.length, nearExpiryFindings.length);
   const temperatureRisksCount = data?.findings.filter((f) => f.type === "coldchain").length || 0;
 
   if (error) {
@@ -115,7 +166,7 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-            Safety & Recall Dashboard
+            Safety &amp; Recall Dashboard
             <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200 font-semibold">
               Live Network
             </span>
@@ -237,7 +288,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* 2. Key Metrics Row (Vibrant Multi-Color Treatment) */}
+      {/* 2. Key Metrics Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Metric 1: Active Recalls (Rose / Red) */}
         <Link href="/cases" className="group">
@@ -258,30 +309,11 @@ export default function DashboardPage() {
           </Card>
         </Link>
 
-        {/* Metric 2: Awaiting Approval (Amber / Gold) */}
-        <Link href="/approvals" className="group">
-          <Card className="p-4 bg-amber-50/40 border border-amber-200 hover:border-amber-400 hover:bg-amber-50/80 hover:shadow-xs transition">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-800">Awaiting Approval</span>
-              <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
-                <CheckSquare className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="text-2xl font-extrabold text-amber-950 mt-2">
-              {loading ? "..." : awaitingApprovalCount}
-            </div>
-            <p className="text-[11px] text-amber-700 mt-1 font-medium group-hover:underline flex items-center gap-1">
-              <span>Sign-off pending actions</span>
-              <ArrowRight className="w-3 h-3" />
-            </p>
-          </Card>
-        </Link>
-
-        {/* Metric 3: Stock Shortages (Royal Blue) */}
-        <Link href="/findings" className="group">
+        {/* Metric 2: Critical Shortages (Blue / Crimson) */}
+        <a href="#critical-shortages" className="group">
           <Card className="p-4 bg-blue-50/40 border border-blue-200 hover:border-blue-400 hover:bg-blue-50/80 hover:shadow-xs transition">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-blue-800">Stock Shortages</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-blue-800">Critical Shortages</span>
               <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
                 <AlertTriangle className="w-4 h-4" />
               </div>
@@ -290,30 +322,383 @@ export default function DashboardPage() {
               {loading ? "..." : stockShortagesCount}
             </div>
             <p className="text-[11px] text-blue-700 mt-1 font-medium group-hover:underline flex items-center gap-1">
-              <span>Inspect shortages</span>
+              <span>Inspect shortage risks</span>
               <ArrowRight className="w-3 h-3" />
             </p>
           </Card>
-        </Link>
+        </a>
 
-        {/* Metric 4: Temperature Risks (Electric Purple) */}
-        <Link href="/notifications" className="group">
-          <Card className="p-4 bg-purple-50/40 border border-purple-200 hover:border-purple-400 hover:bg-purple-50/80 hover:shadow-xs transition">
+        {/* Metric 3: Near-Expiry Batches (Amber / Gold) */}
+        <a href="#near-expiry" className="group">
+          <Card className="p-4 bg-amber-50/40 border border-amber-200 hover:border-amber-400 hover:bg-amber-50/80 hover:shadow-xs transition">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-purple-800">Temperature Risks</span>
-              <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center">
-                <ThermometerSnowflake className="w-4 h-4" />
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-800">Near-Expiry Stock</span>
+              <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
+                <Clock className="w-4 h-4" />
               </div>
             </div>
-            <div className="text-2xl font-extrabold text-purple-950 mt-2">
-              {loading ? "..." : temperatureRisksCount}
+            <div className="text-2xl font-extrabold text-amber-950 mt-2">
+              {loading ? "..." : nearExpiryCount}
             </div>
-            <p className="text-[11px] text-purple-700 mt-1 font-medium group-hover:underline flex items-center gap-1">
-              <span>Check cold-chain units</span>
+            <p className="text-[11px] text-amber-700 mt-1 font-medium group-hover:underline flex items-center gap-1">
+              <span>Review expiry defense</span>
+              <ArrowRight className="w-3 h-3" />
+            </p>
+          </Card>
+        </a>
+
+        {/* Metric 4: Awaiting Approval (Emerald / Green) */}
+        <Link href="/approvals" className="group">
+          <Card className="p-4 bg-emerald-50/40 border border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50/80 hover:shadow-xs transition">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">Awaiting Sign-off</span>
+              <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                <CheckSquare className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-2xl font-extrabold text-emerald-950 mt-2">
+              {loading ? "..." : awaitingApprovalCount}
+            </div>
+            <p className="text-[11px] text-emerald-700 mt-1 font-medium group-hover:underline flex items-center gap-1">
+              <span>Sign-off pending actions</span>
               <ArrowRight className="w-3 h-3" />
             </p>
           </Card>
         </Link>
+      </div>
+
+      {/* 3. DEDICATED OPERATIONAL WATCHES: CRITICAL SHORTAGES & NEAR-EXPIRY MEDICINES */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {/* CARD 1: Critical Medicines Likely to Run Short */}
+        <div id="critical-shortages" className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-rose-100 text-rose-700 rounded-xl">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                    Critical Medicines Likely to Run Short
+                  </h2>
+                  <Badge variant={criticalShortages.length > 0 ? "danger" : "neutral"} size="sm">
+                    {criticalShortages.length} Imminent
+                  </Badge>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Life-saving drugs where warehouse cover days are below supplier replenishment lead times.
+                </p>
+              </div>
+            </div>
+            <Link href="/purchase-orders">
+              <Button variant="secondary" size="sm" leftIcon={<ShoppingCart className="w-3.5 h-3.5 text-slate-700" />}>
+                Manage POs
+              </Button>
+            </Link>
+          </div>
+
+          <Card className="p-4 bg-white border border-rose-200/80 shadow-xs space-y-3">
+            {loading ? (
+              <div className="space-y-3">
+                <CardSkeleton />
+                <CardSkeleton />
+              </div>
+            ) : criticalShortages.length === 0 ? (
+              <div className="p-6 text-center rounded-xl bg-slate-50/70 border border-slate-200/60 space-y-1.5">
+                <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
+                <h3 className="text-sm font-bold text-slate-900">All Critical Stock Well-Covered</h3>
+                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                  No life-saving medications have stock cover days below their supplier replenishment lead time buffer.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {criticalShortages.map((item) => {
+                  const coverDays = Number(item.metrics?.cover_days ?? 0);
+                  const leadTime = Number(item.metrics?.supplier_lead_time_days ?? item.metrics?.lead_time_days ?? 7);
+                  const shortfall = Number(item.metrics?.safety_buffer_shortfall_days ?? (leadTime + 3 - coverDays));
+                  const reorderQty = Number(item.metrics?.recommended_order_qty ?? item.metrics?.reorder_qty ?? 600);
+                  const totalStock = Number(item.metrics?.total_stock ?? item.metrics?.stock_units ?? 0);
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-4 rounded-xl border border-rose-200 bg-rose-50/20 hover:bg-rose-50/40 transition space-y-3"
+                    >
+                      {/* Title & SKU */}
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-bold text-sm sm:text-base text-rose-950">
+                              {item.entities?.brand || item.title}
+                            </h3>
+                            <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-200">
+                              {item.entities?.sku || "SKU-CRIT"}
+                            </span>
+                            <Badge variant="danger" size="sm">
+                              High Priority
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-slate-600">
+                            {item.entities?.molecule || "Emergency Critical Drug"} &bull; Storage: {item.entities?.storage || "Cool (2-8°C)"}
+                          </p>
+                        </div>
+
+                        <div className="sm:text-right shrink-0">
+                          <span className="text-[11px] text-slate-500 block">Warehouse Stock</span>
+                          <span className="text-base font-extrabold text-slate-900 font-mono">
+                            {totalStock.toLocaleString()} units
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 3 Metric Comparison Blocks */}
+                      <div className="grid grid-cols-3 gap-2 py-1 text-center">
+                        <div className="bg-white p-2 rounded-lg border border-rose-200/70 shadow-2xs">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                            Days of Cover
+                          </span>
+                          <span className="text-sm font-extrabold text-rose-700">
+                            {coverDays} Days
+                          </span>
+                        </div>
+
+                        <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-2xs">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                            Supplier Lead Time
+                          </span>
+                          <span className="text-sm font-extrabold text-slate-800">
+                            {leadTime} Days
+                          </span>
+                        </div>
+
+                        <div className="bg-rose-100/70 p-2 rounded-lg border border-rose-300 shadow-2xs">
+                          <span className="text-[10px] uppercase font-bold text-rose-800 block">
+                            Deficit Gap
+                          </span>
+                          <span className="text-sm font-extrabold text-rose-950">
+                            -{shortfall.toFixed(1)} Days
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Depletion Horizon Progress Bar */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[11px] text-slate-600 font-medium">
+                          <span>
+                            Current Cover ({coverDays}d) vs Safe Threshold ({leadTime + 3}d)
+                          </span>
+                          <span className="text-rose-700 font-bold">
+                            Stockout Risk Imminent
+                          </span>
+                        </div>
+                        <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden relative">
+                          <div
+                            className="h-full bg-rose-500 rounded-full transition-all"
+                            style={{
+                              width: `${Math.min(100, Math.max(12, (coverDays / (leadTime + 3)) * 100))}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Supplier & Action Buttons */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 border-t border-rose-200/60">
+                        <div className="text-xs text-slate-600">
+                          Supplier: <strong className="text-slate-800">{item.entities?.supplier || "Authorized Distributor"}</strong> &bull; Recommended Reorder: <strong className="text-blue-700">{reorderQty.toLocaleString()} units</strong>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Link href="/purchase-orders">
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              leftIcon={<ShoppingCart className="w-3.5 h-3.5 text-white" />}
+                            >
+                              Draft Replenishment PO
+                            </Button>
+                          </Link>
+                          <Link href={`/findings/${item.id}`}>
+                            <Button variant="secondary" size="sm" rightIcon={<ArrowRight className="w-3 h-3" />}>
+                              View Finding
+                            </Button>
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* CARD 2: Near Expiry Medicines Watchlist */}
+        <div id="near-expiry" className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-amber-100 text-amber-700 rounded-xl">
+                <Clock className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                    Near Expiry Medicines Watchlist
+                  </h2>
+                  <Badge variant={displayNearExpiryList.length > 0 ? "warning" : "neutral"} size="sm">
+                    {displayNearExpiryList.length} Batches
+                  </Badge>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Batches expiring within 120 days or facing closing manufacturer return windows.
+                </p>
+              </div>
+            </div>
+            <Link href="/inventory">
+              <Button variant="secondary" size="sm" leftIcon={<Boxes className="w-3.5 h-3.5 text-slate-700" />}>
+                All Inventory
+              </Button>
+            </Link>
+          </div>
+
+          <Card className="p-4 bg-white border border-amber-200/80 shadow-xs space-y-3">
+            {loading ? (
+              <div className="space-y-3">
+                <CardSkeleton />
+                <CardSkeleton />
+              </div>
+            ) : displayNearExpiryList.length === 0 ? (
+              <div className="p-6 text-center rounded-xl bg-slate-50/70 border border-slate-200/60 space-y-1.5">
+                <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
+                <h3 className="text-sm font-bold text-slate-900">Optimal Shelf-Life Stability</h3>
+                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                  No batches expiring within the next 120 days. All active stock is compliant with hospital shelf-life policies.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {displayNearExpiryList.slice(0, 4).map((item) => {
+                  const daysToExpiry = item.days_to_expiry;
+                  const isCriticalExp = daysToExpiry <= 60;
+                  const targetFindingId = item.matchingRet?.id || item.matchingExp?.id;
+
+                  return (
+                    <div
+                      key={item.batch}
+                      className="p-4 rounded-xl border border-amber-200 bg-amber-50/20 hover:bg-amber-50/40 transition space-y-3"
+                    >
+                      {/* Title & Batch */}
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-bold text-sm sm:text-base text-amber-950">
+                              {item.brand}
+                            </h3>
+                            <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">
+                              Batch: {item.batch}
+                            </span>
+                            <span className="text-xs font-mono text-slate-500">
+                              {item.sku}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-600">
+                            {item.molecule} &bull; Warehouse: <strong className="text-slate-800">{item.warehouse}</strong>
+                          </p>
+                        </div>
+
+                        <div className="shrink-0">
+                          <Badge
+                            variant={isCriticalExp ? "danger" : "warning"}
+                            size="sm"
+                          >
+                            <Clock className="w-3 h-3 mr-1 inline" />
+                            {daysToExpiry <= 0 ? "EXPIRED" : `${daysToExpiry}d to Expiry`}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      {/* Units & Return Window Details */}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 py-1 text-xs">
+                        <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-2xs">
+                          <span className="text-slate-400 block text-[10px] uppercase font-bold">
+                            Total Stock
+                          </span>
+                          <span className="text-slate-900 font-extrabold text-sm font-mono">
+                            {item.qty.toLocaleString()} units
+                          </span>
+                        </div>
+
+                        <div className="bg-white p-2 rounded-lg border border-amber-200/70 shadow-2xs">
+                          <span className="text-slate-400 block text-[10px] uppercase font-bold">
+                            Expiry Date
+                          </span>
+                          <span className="text-amber-900 font-bold text-xs">
+                            {item.expiry_date}
+                          </span>
+                        </div>
+
+                        <div className="bg-amber-100/60 p-2 rounded-lg border border-amber-300 shadow-2xs col-span-2 sm:col-span-1">
+                          <span className="text-amber-800 block text-[10px] uppercase font-bold">
+                            Return Protection
+                          </span>
+                          <span className="text-amber-950 font-bold text-xs">
+                            {item.matchingRet?.metrics?.days_to_window_close !== undefined
+                              ? `${item.matchingRet.metrics.days_to_window_close}d left for RMA credit`
+                              : daysToExpiry <= 60
+                              ? "Window Closed - Discount"
+                              : "Eligible for Return"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Value at Risk & Action Buttons */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 border-t border-amber-200/60">
+                        <div className="text-xs text-slate-600">
+                          {item.matchingExp?.metrics?.value_at_risk_inr ? (
+                            <span>
+                              Value at risk: <strong className="text-amber-900 font-mono">₹{Number(item.matchingExp.metrics.value_at_risk_inr).toLocaleString()}</strong> ({item.matchingExp.metrics.at_risk_qty || 0} units unsold)
+                            </span>
+                          ) : (
+                            <span>Prioritize FIFO/FEFO dispatch before shelf-life cutoff</span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {targetFindingId ? (
+                            <Link href={`/findings/${targetFindingId}`}>
+                              <Button
+                                variant="amber"
+                                size="sm"
+                                leftIcon={<RotateCcw className="w-3.5 h-3.5 text-white" />}
+                              >
+                                Initiate Return / Discount
+                              </Button>
+                            </Link>
+                          ) : (
+                            <Link href="/inventory">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                leftIcon={<Boxes className="w-3.5 h-3.5 text-slate-700" />}
+                              >
+                                View in Inventory
+                              </Button>
+                            </Link>
+                          )}
+                          <Link href={`/trace?batch=${item.batch}`}>
+                            <Button variant="secondary" size="sm" rightIcon={<ArrowRight className="w-3 h-3" />}>
+                              Trace
+                            </Button>
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+        </div>
       </div>
 
       {/* 3. Two-Column Layout: "Needs Attention" & "Recent Activity" */}

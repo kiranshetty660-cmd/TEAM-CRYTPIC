@@ -145,14 +145,17 @@ export default function AgentMonitorPage() {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 border border-purple-200 flex items-center justify-center shrink-0 shadow-xs">
-            <Cpu className="w-5 h-5 text-purple-600" />
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center shrink-0 shadow-xs">
+            <Cpu className="w-5 h-5 text-blue-600" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
               AI Agents Monitor
+              <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-semibold">
+                Autonomous NIM Mesh
+              </span>
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500">
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
               Track automated safety checks, stock calculations, and recommendations across all 10 specialized agents.
             </p>
           </div>
@@ -161,7 +164,7 @@ export default function AgentMonitorPage() {
         <button
           onClick={fetchData}
           disabled={loading}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition shadow-xs disabled:opacity-50 min-h-[38px]"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition shadow-xs disabled:opacity-50 min-h-[38px]"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           Refresh Traces
@@ -171,35 +174,35 @@ export default function AgentMonitorPage() {
       {/* KPI Metric Cards */}
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <div className="bg-white p-3.5 rounded-xl border border-slate-200 border-t-4 border-t-indigo-500 shadow-xs">
-            <span className="text-[11px] font-semibold text-indigo-700 uppercase tracking-wider">Total Scans</span>
-            <p className="text-2xl font-bold text-slate-900 mt-1">{stats.total_runs}</p>
-            <span className="text-[10px] text-slate-400">All cases inspected</span>
+          <div className="p-3.5 rounded-xl bg-indigo-50/40 border border-indigo-200 hover:border-indigo-300 hover:bg-indigo-50/70 hover:shadow-xs transition">
+            <span className="text-[11px] font-bold text-indigo-800 uppercase tracking-wider">Total Scans</span>
+            <p className="text-2xl font-extrabold text-indigo-950 mt-1">{stats.total_runs}</p>
+            <span className="text-[10px] text-indigo-700 font-medium">All cases inspected</span>
           </div>
-          <div className="bg-white p-3.5 rounded-xl border border-slate-200 border-t-4 border-t-purple-600 shadow-xs">
-            <span className="text-[11px] font-semibold text-purple-700 uppercase tracking-wider">Live AI Model</span>
-            <p className="text-2xl font-bold text-purple-900 mt-1">{stats.live_llm_runs}</p>
-            <span className="text-[10px] text-purple-600">NVIDIA NIM Cloud</span>
+          <div className="p-3.5 rounded-xl bg-purple-50/40 border border-purple-200 hover:border-purple-300 hover:bg-purple-50/70 hover:shadow-xs transition">
+            <span className="text-[11px] font-bold text-purple-800 uppercase tracking-wider">Live AI Model</span>
+            <p className="text-2xl font-extrabold text-purple-950 mt-1">{stats.live_llm_runs}</p>
+            <span className="text-[10px] text-purple-700 font-medium">NVIDIA NIM Cloud</span>
           </div>
-          <div className="bg-white p-3.5 rounded-xl border border-slate-200 border-t-4 border-t-amber-500 shadow-xs">
-            <span className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">Rule Engine</span>
-            <p className="text-2xl font-bold text-amber-700 mt-1">{stats.fallback_runs}</p>
-            <span className="text-[10px] text-amber-600">Deterministic Safety</span>
+          <div className="p-3.5 rounded-xl bg-amber-50/40 border border-amber-200 hover:border-amber-300 hover:bg-amber-50/70 hover:shadow-xs transition">
+            <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">Rule Engine</span>
+            <p className="text-2xl font-extrabold text-amber-950 mt-1">{stats.fallback_runs}</p>
+            <span className="text-[10px] text-amber-700 font-medium">Deterministic Safety</span>
           </div>
-          <div className="bg-white p-3.5 rounded-xl border border-slate-200 border-t-4 border-t-sky-500 shadow-xs">
-            <span className="text-[11px] font-semibold text-sky-700 uppercase tracking-wider">Speed</span>
-            <p className="text-2xl font-bold text-slate-900 mt-1">{stats.avg_latency_ms.toFixed(0)} <span className="text-xs font-normal text-slate-400">ms</span></p>
-            <span className="text-[10px] text-slate-400">Average response time</span>
+          <div className="p-3.5 rounded-xl bg-sky-50/40 border border-sky-200 hover:border-sky-300 hover:bg-sky-50/70 hover:shadow-xs transition">
+            <span className="text-[11px] font-bold text-sky-800 uppercase tracking-wider">Speed</span>
+            <p className="text-2xl font-extrabold text-sky-950 mt-1">{stats.avg_latency_ms.toFixed(0)} <span className="text-xs font-normal text-sky-700">ms</span></p>
+            <span className="text-[10px] text-sky-700 font-medium">Average response time</span>
           </div>
-          <div className="bg-white p-3.5 rounded-xl border border-slate-200 border-t-4 border-t-emerald-500 shadow-xs">
-            <span className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wider">Review Pass Rate</span>
-            <p className="text-2xl font-bold text-emerald-700 mt-1">{stats.review_pass_rate_pct}%</p>
-            <span className="text-[10px] text-emerald-600">Audit checks passed</span>
+          <div className="p-3.5 rounded-xl bg-emerald-50/40 border border-emerald-200 hover:border-emerald-300 hover:bg-emerald-50/70 hover:shadow-xs transition">
+            <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">Review Pass Rate</span>
+            <p className="text-2xl font-extrabold text-emerald-950 mt-1">{stats.review_pass_rate_pct}%</p>
+            <span className="text-[10px] text-emerald-700 font-medium">Audit checks passed</span>
           </div>
-          <div className="bg-white p-3.5 rounded-xl border border-slate-200 border-t-4 border-t-rose-500 shadow-xs">
-            <span className="text-[11px] font-semibold text-rose-700 uppercase tracking-wider">Pending Approvals</span>
-            <p className="text-2xl font-bold text-rose-700 mt-1">{stats.pending_human_approvals}</p>
-            <span className="text-[10px] text-rose-600">Awaiting human sign-off</span>
+          <div className="p-3.5 rounded-xl bg-rose-50/40 border border-rose-200 hover:border-rose-300 hover:bg-rose-50/70 hover:shadow-xs transition">
+            <span className="text-[11px] font-bold text-rose-800 uppercase tracking-wider">Pending Approvals</span>
+            <p className="text-2xl font-extrabold text-rose-950 mt-1">{stats.pending_human_approvals}</p>
+            <span className="text-[10px] text-rose-700 font-medium">Awaiting human sign-off</span>
           </div>
         </div>
       )}
